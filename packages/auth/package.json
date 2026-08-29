@@ -1,0 +1,24 @@
+{
+  "name": "@company-manager/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@company-manager/db": "workspace:*",
+    "@company-manager/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@company-manager/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

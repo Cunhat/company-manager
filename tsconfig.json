@@ -1,0 +1,3 @@
+{
+  "extends": "@company-manager/config/tsconfig.base.json"
+}
