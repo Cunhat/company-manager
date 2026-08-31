@@ -7,7 +7,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Start** - SSR framework with TanStack Router
 - **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
+- **shadcn/ui** - UI primitives live in `apps/web`
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
@@ -24,9 +24,15 @@ bun install
 
 ## Database Setup
 
-Alchemy provisions Neon, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted `DATABASE_URL` into the app environment.
+Add your Postgres connection string to `apps/web/.env`:
 
-Generate and commit migration SQL with `bun run db:generate`. Deployment applies checked-in migrations after provisioning the database.
+```bash
+DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+```
+
+Alchemy reads that value and passes it to the app. For Neon, use the pooled connection string from the console.
+
+Generate and commit migration SQL with `bun run db:generate`, then apply it with `bun run db:migrate`.
 
 Then, run the development server:
 
@@ -38,41 +44,35 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+shadcn/ui lives in the web app.
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+- Change design tokens and global styles in `apps/web/src/index.css`
+- Update primitives in `apps/web/src/components/ui/*`
+- Adjust shadcn aliases or style config in `apps/web/components.json`
 
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
+Add more components from `apps/web`:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bunx --bun shadcn@latest add accordion dialog popover sheet table
 ```
 
-Import shared components like this:
+Import components like this:
 
 ```tsx
-import { Button } from "@company-manager/ui/components/button";
+import { Button } from "@/components/ui/button";
 ```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
 
 ## Deployment
 
 ### Alchemy
 
 - Target: web on Cloudflare
-- Configure provider login: `cd packages/infra && bunx alchemy login --configure`
+- Configure Cloudflare login: `cd packages/infra && bunx alchemy login --configure`
 - Dev: bun run dev
 - Deploy: bun run deploy
 - Destroy: bun run destroy
 
-`alchemy login --configure` stores the selected Cloudflare, Neon, PlanetScale, and/or Prisma provider profiles under `~/.alchemy`; no provider-specific setup command is required by this scaffold.
+`alchemy login --configure` stores the selected Cloudflare provider profile under `~/.alchemy`. The database is not provisioned by Alchemy; set `DATABASE_URL` in `apps/web/.env`.
 
 Deploys are staged and default to a personal `dev_<username>` stage. For production, run the deploy with an explicit stage from `packages/infra`:
 
@@ -91,7 +91,6 @@ company-manager/
 ├── apps/
 │   └── web/         # Fullstack application (React + TanStack Start)
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
 │   ├── auth/        # Authentication configuration & logic
 │   └── db/          # Database schema & queries
 ```
