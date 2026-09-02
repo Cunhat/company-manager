@@ -17,12 +17,14 @@ import {
   IconFrame,
   IconLayoutRows,
   IconMap,
+  IconLayoutDashboardFilled,
+  IconReceiptEuroFilled,
+  IconFileInvoiceFilled,
 } from "@tabler/icons-react";
 
-// This is sample data.
 const data = {
   team: {
-    name: "Acme Inc",
+    name: "TMC Lda",
     logo: <IconLayoutRows />,
   },
   // navMain: [
@@ -114,19 +116,19 @@ const data = {
   // ],
   projects: [
     {
-      name: "Design Engineering",
+      name: "Dashboard",
       url: "#",
-      icon: <IconFrame />,
+      icon: <IconLayoutDashboardFilled />,
     },
     {
-      name: "Sales & Marketing",
+      name: "Invoices",
       url: "#",
-      icon: <IconChartPie />,
+      icon: <IconFileInvoiceFilled />,
     },
     {
-      name: "Travel",
+      name: "Expenses",
       url: "#",
-      icon: <IconMap />,
+      icon: <IconReceiptEuroFilled />,
     },
   ],
 };
