@@ -38,7 +38,7 @@ export function LoginForm() {
         },
         {
           onSuccess: () => {
-            navigate({ to: "/dashboard" });
+            navigate({ to: "/" });
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
@@ -55,7 +55,7 @@ export function LoginForm() {
     <AuthFormShell
       title="Sign in"
       description="Use Google or your work email to continue."
-      callbackURL="/dashboard"
+      callbackURL="/"
       errorCallbackURL="/login"
       footer={{ prompt: "No account yet?", to: "/signup", label: "Create one" }}
     >

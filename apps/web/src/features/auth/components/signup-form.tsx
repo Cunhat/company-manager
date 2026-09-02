@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useForm } from "@tanstack/react-form";
@@ -36,7 +41,7 @@ export function SignUpForm() {
         },
         {
           onSuccess: () => {
-            navigate({ to: "/dashboard" });
+            navigate({ to: "/" });
             toast.success("Account created");
           },
           onError: (error) => {
@@ -54,9 +59,13 @@ export function SignUpForm() {
     <AuthFormShell
       title="Create account"
       description="Start with Google or your work email."
-      callbackURL="/dashboard"
+      callbackURL="/"
       errorCallbackURL="/signup"
-      footer={{ prompt: "Already have an account?", to: "/login", label: "Sign in" }}
+      footer={{
+        prompt: "Already have an account?",
+        to: "/login",
+        label: "Sign in",
+      }}
     >
       <form
         onSubmit={(event) => {
@@ -134,7 +143,11 @@ export function SignUpForm() {
             })}
           >
             {({ canSubmit, isSubmitting }) => (
-              <Button type="submit" className="h-11 w-full" disabled={!canSubmit || isSubmitting}>
+              <Button
+                type="submit"
+                className="h-11 w-full"
+                disabled={!canSubmit || isSubmitting}
+              >
                 {isSubmitting ? <Spinner data-icon="inline-start" /> : null}
                 {isSubmitting ? "Creating account..." : "Create account"}
               </Button>
