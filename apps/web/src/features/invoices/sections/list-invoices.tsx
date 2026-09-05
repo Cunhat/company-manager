@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { IconArrowDown, IconFileInvoice } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import type { InvoiceStatus } from "../schemas/validators";
 import { getInvoicesQuery } from "../server/functions";
 import type { Invoice } from "../schemas/types";
@@ -38,7 +37,7 @@ const statuses: Record<InvoiceStatus, { label: string; className: string }> = {
 export default function ListInvoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
-  const { data: invoices, isPending, isError, isFetching, refetch } = useQuery(getInvoicesQuery);
+  const { data: invoices, isError, isFetching, refetch } = useSuspenseQuery(getInvoicesQuery);
 
   return (
     <section
@@ -50,11 +49,9 @@ export default function ListInvoices() {
           <h2 id="invoice-list-heading" tabIndex={-1} className="text-sm font-semibold">
             All invoices
           </h2>
-          {invoices ? (
-            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums dark:text-teal-300">
-              {invoices.length}
-            </span>
-          ) : null}
+          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums dark:text-teal-300">
+            {invoices.length}
+          </span>
         </div>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <IconArrowDown className="size-3.5" aria-hidden="true" />
@@ -67,7 +64,6 @@ export default function ListInvoices() {
         isError={isError}
         isFetching={isFetching}
         refetch={refetch}
-        isPending={isPending}
         onSelect={(invoice, trigger) => {
           returnFocus.current = trigger;
           setSelectedInvoice(invoice);
@@ -90,14 +86,12 @@ function InvoicesTable({
   isError,
   isFetching,
   refetch,
-  isPending,
   onSelect,
 }: {
-  invoices: Invoice[] | undefined;
+  invoices: Invoice[];
   isError: boolean;
   isFetching: boolean;
   refetch: () => void;
-  isPending: boolean;
   onSelect: (invoice: Invoice, trigger: HTMLElement | null) => void;
 }) {
   if (isError) {
@@ -106,11 +100,7 @@ function InvoicesTable({
         role="alert"
         className="flex flex-wrap items-center justify-between gap-3 border-b bg-destructive/5 px-5 py-4"
       >
-        <p className="text-sm">
-          {invoices
-            ? "Could not refresh invoices. Showing the last loaded list."
-            : "Could not load your invoices. Please try again."}
-        </p>
+        <p className="text-sm">Could not refresh invoices. Please try again.</p>
         <Button variant="outline" disabled={isFetching} onClick={() => void refetch()}>
           {isFetching ? "Retrying..." : "Try again"}
         </Button>
@@ -118,22 +108,7 @@ function InvoicesTable({
     );
   }
 
-  if (isPending) {
-    return (
-      <div role="status" className="divide-y px-5">
-        <span className="sr-only">Loading invoices</span>
-        {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} className="flex items-center gap-6 py-5" aria-hidden="true">
-            <Skeleton className="h-5 w-1/3" />
-            <Skeleton className="ml-auto h-5 w-20" />
-            <Skeleton className="h-5 w-20" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (!invoices || invoices.length === 0) {
+  if (invoices.length === 0) {
     return (
       <div className="flex flex-col items-center px-6 py-16 text-center">
         <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-teal-300">
@@ -172,7 +147,7 @@ function InvoicesTable({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {invoices?.map((invoice) => {
+          {invoices.map((invoice) => {
             const status = statuses[invoice.status];
             const date = new Date(invoice.createdAt);
 

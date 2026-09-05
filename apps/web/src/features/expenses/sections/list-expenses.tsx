@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { IconArrowDown, IconReceiptEuro } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { getExpensesQuery } from "../server/functions";
 import type { Expense } from "../schemas/types";
 import { useRef, useState } from "react";
@@ -22,7 +21,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 export default function ListExpenses() {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
-  const { data: expenses, isPending, isError, isFetching, refetch } = useQuery(getExpensesQuery);
+  const { data: expenses, isError, isFetching, refetch } = useSuspenseQuery(getExpensesQuery);
 
   return (
     <section
@@ -34,11 +33,9 @@ export default function ListExpenses() {
           <h2 id="expense-list-heading" tabIndex={-1} className="text-sm font-semibold">
             All expenses
           </h2>
-          {expenses ? (
-            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums dark:text-teal-300">
-              {expenses.length}
-            </span>
-          ) : null}
+          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary tabular-nums dark:text-teal-300">
+            {expenses.length}
+          </span>
         </div>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <IconArrowDown className="size-3.5" aria-hidden="true" />
@@ -51,7 +48,6 @@ export default function ListExpenses() {
         isError={isError}
         isFetching={isFetching}
         refetch={refetch}
-        isPending={isPending}
         onSelect={(expense, trigger) => {
           returnFocus.current = trigger;
           setSelectedExpense(expense);
@@ -74,14 +70,12 @@ function ExpensesTable({
   isError,
   isFetching,
   refetch,
-  isPending,
   onSelect,
 }: {
-  expenses: Expense[] | undefined;
+  expenses: Expense[];
   isError: boolean;
   isFetching: boolean;
   refetch: () => void;
-  isPending: boolean;
   onSelect: (expense: Expense, trigger: HTMLElement | null) => void;
 }) {
   if (isError) {
@@ -90,11 +84,7 @@ function ExpensesTable({
         role="alert"
         className="flex flex-wrap items-center justify-between gap-3 border-b bg-destructive/5 px-5 py-4"
       >
-        <p className="text-sm">
-          {expenses
-            ? "Could not refresh expenses. Please try again."
-            : "Could not load your expenses. Please try again."}
-        </p>
+        <p className="text-sm">Could not refresh expenses. Please try again.</p>
         <Button variant="outline" disabled={isFetching} onClick={() => void refetch()}>
           {isFetching ? "Retrying..." : "Try again"}
         </Button>
@@ -102,22 +92,7 @@ function ExpensesTable({
     );
   }
 
-  if (isPending) {
-    return (
-      <div role="status" className="divide-y px-5">
-        <span className="sr-only">Loading expenses</span>
-        {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} className="flex items-center gap-6 py-5" aria-hidden="true">
-            <Skeleton className="h-5 w-1/3" />
-            <Skeleton className="ml-auto h-5 w-20" />
-            <Skeleton className="h-5 w-20" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (!expenses || expenses.length === 0) {
+  if (expenses.length === 0) {
     return (
       <div className="flex flex-col items-center px-6 py-16 text-center">
         <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-teal-300">
@@ -156,7 +131,7 @@ function ExpensesTable({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {expenses?.map((expense) => {
+          {expenses.map((expense) => {
             const iva = expense.iva;
             const date = new Date(expense.createdAt);
 
