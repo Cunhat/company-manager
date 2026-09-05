@@ -1,7 +1,29 @@
-import { ArrowUpRight, CalendarDays, Clock3 } from "lucide-react";
-import { euro } from "../data/dashboard-demo";
+import { getExpensesQuery } from "@/features/expenses/server/functions";
+import { getInvoicesQuery } from "@/features/invoices/server/functions";
+import { IconCalendarWeekFilled, IconClockFilled } from "@tabler/icons-react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { ArrowUpRight, Clock3 } from "lucide-react";
+import {
+  estimateQuarterIva,
+  getNextIvaDeadline,
+} from "../lib/next-iva-payment";
 
+const money = new Intl.NumberFormat("en-IE", {
+  style: "currency",
+  currency: "EUR",
+});
 export default function NextIvaPayment() {
+  const { data: invoices } = useSuspenseQuery(getInvoicesQuery);
+  const { data: expenses } = useSuspenseQuery(getExpensesQuery);
+
+  const now = dayjs.utc().toDate();
+  const deadline = now ? getNextIvaDeadline(now) : null;
+
+  const amount = deadline
+    ? estimateQuarterIva(invoices, expenses, deadline)
+    : null;
+
   return (
     <section
       aria-labelledby="next-payment"
@@ -9,34 +31,49 @@ export default function NextIvaPayment() {
     >
       <div className="p-6 sm:p-7">
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-900">
-          <Clock3 size={16} aria-hidden="true" /> Next unpaid IVA obligation{" "}
+          <Clock3 size={16} aria-hidden="true" /> Next scheduled IVA obligation{" "}
           <span className="rounded-full bg-amber-200/60 px-2 py-1 tracking-normal">
-            20 days to pay · demo
+            {deadline
+              ? deadline.daysToPay === 0
+                ? "Payment deadline today"
+                : `${deadline.daysToPay} days to payment deadline`
+              : "Loading deadline…"}
           </span>
         </div>
         <h2 id="next-payment" className="mt-4 text-xl font-medium">
-          Q2 2026 · April to June
+          {deadline
+            ? `${deadline.quarter} ${deadline.taxYear} · ${deadline.start.format("MMMM")} to ${deadline.end.subtract(1, "day").format("MMMM")}`
+            : "Quarterly IVA"}
         </h2>
-        <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{euro(5520)}</p>
-        <p className="mt-3 text-sm text-stone-600">
-          Set aside for the government. Payment has not been recorded.
+        <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">
+          {amount === null ? "—" : money.format(Math.max(0, amount))}
         </p>
       </div>
       <div className="flex flex-col justify-center gap-5 border-t border-amber-200 p-6 lg:border-t-0 lg:border-l">
         <div className="flex gap-3">
-          <CalendarDays size={20} aria-hidden="true" />
+          <IconCalendarWeekFilled size={20} aria-hidden="true" />
           <div>
-            <p className="text-xs text-stone-600">Declaration deadline · not filed in demo</p>
-            <p className="mt-1 font-semibold">21 September 2026</p>
+            <p className="text-xs text-stone-600">
+              Declaration deadline
+              {deadline?.declarationDatePassed
+                ? " · date passed, verify submission"
+                : ""}
+            </p>
+            <p className="mt-1 font-semibold">
+              {deadline ? deadline.declaration.format("D MMMM YYYY") : "—"}
+            </p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Clock3 size={20} aria-hidden="true" />
+          <IconClockFilled size={20} aria-hidden="true" />
           <div>
-            <p className="text-xs text-stone-600">Payment deadline · unpaid in demo</p>
-            <p className="mt-1 font-semibold">25 September 2026</p>
+            <p className="text-xs text-stone-600">Payment deadline</p>
+            <p className="mt-1 font-semibold">
+              {deadline ? deadline.payment.format("D MMMM YYYY") : "—"}
+            </p>
           </div>
         </div>
+
         <a
           href="https://www.portaldasfinancas.gov.pt/"
           target="_blank"
