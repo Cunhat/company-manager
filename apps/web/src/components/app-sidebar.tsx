@@ -13,10 +13,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import {
-  IconChartPie,
-  IconFrame,
   IconLayoutRows,
-  IconMap,
   IconLayoutDashboardFilled,
   IconReceiptEuroFilled,
   IconFileInvoiceFilled,
@@ -127,7 +124,7 @@ const data = {
     },
     {
       name: "Expenses",
-      url: "#",
+      url: "/expenses",
       icon: <IconReceiptEuroFilled />,
     },
   ],

@@ -1,20 +1,20 @@
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
-  integer,
+  numeric,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-import { relations, sql } from "drizzle-orm";
 
 export const expense = pgTable("expense", {
   id: uuid("id")
     .default(sql`uuidv7()`)
     .primaryKey(),
   title: text("title").notNull(),
-  value: integer("value").notNull(),
+  value: numeric("value").notNull(),
   iva: boolean("iva").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
