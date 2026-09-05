@@ -122,7 +122,7 @@ const data = {
     },
     {
       name: "Invoices",
-      url: "#",
+      url: "/invoices",
       icon: <IconFileInvoiceFilled />,
     },
     {
