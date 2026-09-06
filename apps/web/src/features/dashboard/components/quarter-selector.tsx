@@ -1,11 +1,15 @@
-import { demoQuarters } from "../data/dashboard-demo";
+import type { DashboardQuarter } from "../lib/quarterly-metrics";
 
-type QuarterSelectionProps = { selected: number; onSelect: (index: number) => void };
+type QuarterSelectionProps = {
+  quarters: DashboardQuarter[];
+  selected: number;
+  onSelect: (index: number) => void;
+};
 
-export default function QuarterSelector({ selected, onSelect }: QuarterSelectionProps) {
+export default function QuarterSelector({ quarters, selected, onSelect }: QuarterSelectionProps) {
   return (
     <div className="flex gap-1 rounded-lg bg-muted p-1" aria-label="Select quarter">
-      {demoQuarters.map((q, index) => (
+      {quarters.map((q, index) => (
         <button
           key={q.id}
           type="button"

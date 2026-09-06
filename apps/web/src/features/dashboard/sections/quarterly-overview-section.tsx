@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { demoQuarters } from "../data/dashboard-demo";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { getQuarterlyMetricsQuery } from "../server/quarterly-metrics";
 import QuarterSelector from "../components/quarter-selector";
 import QuarterComparisonTable from "../components/quarter-comparison-table";
 import QuarterIvaBreakdown from "../components/quarter-iva-breakdown";
 
 export default function QuarterlyOverviewSection() {
-  const [selected, setSelected] = useState(1);
-  const quarter = demoQuarters[selected]!;
-  const previous = demoQuarters[selected - 1];
+  const [selection, setSelected] = useState<number | null>(null);
+
+  const { data } = useSuspenseQuery(getQuarterlyMetricsQuery());
+
+  const selected = selection ?? data.selectedQuarter;
+  const quarter = data.quarters[selected]!;
+  const previous = data.quarters[selected - 1];
 
   return (
     <section
@@ -23,10 +28,19 @@ export default function QuarterlyOverviewSection() {
             Compare activity and inspect each IVA obligation.
           </p>
         </div>
-        <QuarterSelector selected={selected} onSelect={setSelected} />
+        <QuarterSelector
+          quarters={data.quarters}
+          selected={selected}
+          onSelect={setSelected}
+        />
       </div>
       <div className="mt-6 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
-        <QuarterComparisonTable selected={selected} onSelect={setSelected} />
+        <QuarterComparisonTable
+          year={data.year}
+          quarters={data.quarters}
+          selected={selected}
+          onSelect={setSelected}
+        />
         <QuarterIvaBreakdown quarter={quarter} previous={previous} />
       </div>
     </section>

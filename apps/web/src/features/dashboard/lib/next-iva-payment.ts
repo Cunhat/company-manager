@@ -2,11 +2,12 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { IVA_RATE, QUARTERLY_DECLARATION_DEADLINES } from "../../../lib/consts";
+import { getExpenseNetValue } from "../../../lib/expense";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-function resolveDeadline(template: string, taxYear: number) {
+export function resolveDeadline(template: string, taxYear: number) {
   const [day, month, year] = template.split("/");
   const deadline = dayjs
     .utc(`${taxYear + (year!.includes("+ 1") ? 1 : 0)}-01-01`)
@@ -58,8 +59,12 @@ export function estimateQuarterIva(
   const sales = invoices
     .filter((invoice) => invoice.status !== "cancelled" && inPeriod(invoice.createdAt))
     .reduce((sum, invoice) => sum + Math.round(invoice.value * 100), 0);
-  const deductibleExpenses = expenses
+  const deductibleIva = expenses
     .filter((expense) => expense.iva && inPeriod(expense.createdAt))
-    .reduce((sum, expense) => sum + Math.round(Number(expense.value) * 100), 0);
-  return (Math.round(sales * IVA_RATE) - Math.round(deductibleExpenses * IVA_RATE)) / 100;
+    .reduce(
+      (sum, expense) =>
+        sum + Math.round((Number(expense.value) - getExpenseNetValue(expense)) * 100),
+      0,
+    );
+  return (Math.round(sales * IVA_RATE) - deductibleIva) / 100;
 }

@@ -1,5 +1,5 @@
-import { Check } from "lucide-react";
-import { euro, type DashboardQuarter } from "../data/dashboard-demo";
+import { euro } from "@/lib/utils";
+import type { DashboardQuarter } from "../lib/quarterly-metrics";
 
 type QuarterIvaBreakdownProps = { quarter: DashboardQuarter; previous?: DashboardQuarter };
 
@@ -20,19 +20,9 @@ export default function QuarterIvaBreakdown({ quarter, previous }: QuarterIvaBre
           <dt>Deductible purchase IVA</dt>
           <dd className="tabular-nums">−{euro(quarter.deductible)}</dd>
         </div>
-        <div className="flex justify-between">
-          <dt>Prior credits / adjustments</dt>
-          <dd>€0</dd>
-        </div>
         <div className="flex justify-between border-t pt-3 font-semibold">
-          <dt>
-            {quarter.status === "Paid"
-              ? "IVA settled"
-              : quarter.complete
-                ? "IVA to pay"
-                : "Estimated IVA so far"}
-          </dt>
-          <dd className="text-xl tabular-nums">{euro(netIva)}</dd>
+          <dt>{netIva < 0 ? "Estimated IVA credit" : "Estimated IVA to pay"}</dt>
+          <dd className="text-xl tabular-nums">{euro(Math.abs(netIva))}</dd>
         </div>
       </dl>
       <div className="mt-5 border-t pt-4 text-xs text-muted-foreground">
@@ -42,22 +32,19 @@ export default function QuarterIvaBreakdown({ quarter, previous }: QuarterIvaBre
         <p className="mt-2">
           Pay by <span className="font-medium text-foreground">{quarter.payment}</span>
         </p>
-        {quarter.status === "Paid" ? (
-          <p className="mt-3 flex items-center gap-1 text-primary">
-            <Check size={14} aria-hidden="true" /> Payment recorded in sample data
-          </p>
-        ) : null}
+        <p className="mt-3">IVA uses the configured rate. Filings and payments are not recorded.</p>
       </div>
-      {previous && quarter.complete ? (
+      {previous && quarter.status === "Complete" ? (
         <p className="mt-4 text-xs text-muted-foreground">
-          Compared with {previous.id}: sales {euro(quarter.sales - previous.sales)} higher, expenses{" "}
-          {euro(quarter.expenses - previous.expenses)} higher.
+          Compared with {previous.id}: sales {euro(Math.abs(quarter.invoices - previous.invoices))}{" "}
+          {quarter.invoices >= previous.invoices ? "higher" : "lower"}, expenses{" "}
+          {euro(Math.abs(quarter.expenses - previous.expenses))}{" "}
+          {quarter.expenses >= previous.expenses ? "higher" : "lower"}.
         </p>
       ) : null}
       {quarter.id === "Q4" ? (
         <p className="mt-4 text-xs text-muted-foreground">
-          *2027 dates follow the standard rules and weekend adjustment; confirm the published
-          calendar.
+          Q4 deadlines fall in the following year and include weekend adjustments.
         </p>
       ) : null}
     </div>

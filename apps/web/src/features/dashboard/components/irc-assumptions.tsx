@@ -1,4 +1,4 @@
-import { euro } from "../data/dashboard-demo";
+import { euro } from "@/lib/utils";
 
 type IrcAssumptionsProps = { pme: boolean; profit: number; onPmeChange: (value: boolean) => void };
 

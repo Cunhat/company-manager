@@ -4,7 +4,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import dayjs from "dayjs";
 
-export const getWidgets = createServerFn({ method: "GET" })
+export const getYearlyInvoicesAndExpenses = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const userId = context.session?.user.id;
@@ -20,10 +20,10 @@ export const getWidgets = createServerFn({ method: "GET" })
     const startOfNextYear = today.add(1, "year").startOf("year").toDate();
 
     const invoicesQuery = db.query.invoice.findMany({
-      where: (invoice, { eq, and, gte, lt }) =>
+      where: (invoice, { eq, ne, and, gte, lt }) =>
         and(
           eq(invoice.userId, userId),
-          eq(invoice.status, "paid"),
+          ne(invoice.status, "cancelled"),
           gte(invoice.createdAt, startOfYear),
           lt(invoice.createdAt, startOfNextYear),
         ),
@@ -38,10 +38,7 @@ export const getWidgets = createServerFn({ method: "GET" })
         ),
     });
 
-    const [invoices, expenses] = await Promise.all([
-      invoicesQuery,
-      expensesQuery,
-    ]);
+    const [invoices, expenses] = await Promise.all([invoicesQuery, expensesQuery]);
 
     return {
       invoices,
@@ -49,8 +46,8 @@ export const getWidgets = createServerFn({ method: "GET" })
     };
   });
 
-export const getWidgetsQuery = () =>
+export const getYearlyInvoicesAndExpensesQuery = () =>
   queryOptions({
-    queryKey: ["widgets"],
-    queryFn: getWidgets,
+    queryKey: ["yearly-invoices-and-expenses"],
+    queryFn: getYearlyInvoicesAndExpenses,
   });

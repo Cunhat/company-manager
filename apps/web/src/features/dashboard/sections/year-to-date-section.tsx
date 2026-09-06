@@ -6,8 +6,9 @@ import {
 } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import StatCard from "../components/stat-card";
-import { getWidgetsQuery } from "../server/widgets";
+import { getYearlyInvoicesAndExpensesQuery } from "../server/yearly-invoices-and-expenses";
 import { IVA_RATE } from "@/lib/consts";
+import { getExpenseNetValue } from "@/lib/expense";
 
 const amountFormatter = new Intl.NumberFormat("en-IE", {
   style: "currency",
@@ -15,40 +16,31 @@ const amountFormatter = new Intl.NumberFormat("en-IE", {
 });
 
 export default function YearToDateSection() {
-  const { data: widgets } = useSuspenseQuery(getWidgetsQuery());
+  const { data } = useSuspenseQuery(getYearlyInvoicesAndExpensesQuery());
 
-  const invoices = widgets.invoices.reduce(
-    (sum, invoice) => sum + invoice.value,
-    0,
-  );
-  const expenses = widgets.expenses.reduce(
-    (sum, expense) => sum + Number(expense.value),
-    0,
-  );
+  const invoices = data.invoices.reduce((sum, invoice) => sum + invoice.value, 0);
+  const expenses = data.expenses.reduce((sum, expense) => sum + getExpenseNetValue(expense), 0);
   const profit = invoices - expenses;
 
-  const expensesIva = widgets.expenses
+  const expensesIva = data.expenses
     .filter((expense) => expense.iva)
-    .reduce((sum, expense) => sum + Number(expense.value) * IVA_RATE, 0);
+    .reduce((sum, expense) => sum + Number(expense.value) - getExpenseNetValue(expense), 0);
 
   const collectedIva = invoices * IVA_RATE - expensesIva;
 
   return (
-    <section
-      aria-label="Year to date totals"
-      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-    >
+    <section aria-label="Year to date totals" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {[
         {
           label: "Sales invoices",
           value: amountFormatter.format(invoices),
-          note: `${widgets.invoices.length} paid invoices`,
+          note: `${data.invoices.length} pending and paid invoices`,
           icon: IconFileInvoiceFilled,
         },
         {
           label: "Expenses",
           value: amountFormatter.format(expenses),
-          note: `${widgets.expenses.length} expense documents`,
+          note: `${data.expenses.length} expense documents, excluding deductible IVA`,
           icon: IconReceiptEuroFilled,
         },
         {
@@ -60,7 +52,7 @@ export default function YearToDateSection() {
         {
           label: "Profit before tax",
           value: amountFormatter.format(profit),
-          note: "Paid invoices minus recorded expenses",
+          note: "Invoices minus expenses, excluding deductible IVA",
           icon: IconCoinEuroFilled,
         },
       ].map((stat) => (
