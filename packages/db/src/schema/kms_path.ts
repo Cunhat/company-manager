@@ -3,7 +3,7 @@ import { user } from "./auth";
 import { relations } from "drizzle-orm";
 
 export const kmsPath = pgTable("kms_path", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
   reason: text("reason").notNull(),
