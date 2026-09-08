@@ -10,7 +10,20 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { formatAmount, nightsBetween, RATE_CENTS_PER_KM, returnAfterNights } from "../lib/maps";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  formatAmount,
+  nightsBetween,
+  RATE_CENTS_PER_KM,
+  returnAfterNights,
+} from "../lib/maps";
 import type { KmsPath, KmsTrip } from "../schemas/types";
 import { tripDatesSchema } from "../schemas/validators";
 
@@ -36,7 +49,17 @@ export function AddTripDialog({
   const [returnDate, setReturnDate] = useState(departureDate);
   const [error, setError] = useState<string | null>(null);
   const path = paths.find((item) => item.id === pathId);
-  const datesValid = tripDatesSchema.safeParse({ departureDate, returnDate }).success;
+  const pathItems = [
+    { label: "Select a path", value: null },
+    ...paths.map((item) => ({
+      label: `${item.origin} → ${item.destination} · ${item.distance} km · ${item.reason}`,
+      value: item.id,
+    })),
+  ];
+  const datesValid = tripDatesSchema.safeParse({
+    departureDate,
+    returnDate,
+  }).success;
   const nights = datesValid ? nightsBetween(departureDate, returnDate) : 0;
 
   return (
@@ -50,8 +73,8 @@ export function AddTripDialog({
         <DialogHeader>
           <DialogTitle>Add a trip</DialogTitle>
           <DialogDescription>
-            Select a saved path and when you travelled. Your return journey is included
-            automatically.
+            Select a saved path and when you travelled. Your return journey is
+            included automatically.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -63,7 +86,10 @@ export function AddTripDialog({
               setError("Choose a saved path");
               return;
             }
-            const dates = tripDatesSchema.safeParse({ departureDate, returnDate });
+            const dates = tripDatesSchema.safeParse({
+              departureDate,
+              returnDate,
+            });
             if (!dates.success) {
               setError(dates.error.issues[0].message);
               return;
@@ -80,31 +106,44 @@ export function AddTripDialog({
               })
             )
               onClose();
-            else setError("Could not save the trip to browser storage. Please try again.");
+            else
+              setError(
+                "Could not save the trip to browser storage. Please try again.",
+              );
           }}
         >
           <Field>
             <FieldLabel htmlFor={`${id}-path`}>Path</FieldLabel>
-            <select
-              id={`${id}-path`}
-              value={pathId}
+            <Select
+              items={pathItems}
+              value={pathId || null}
               required
-              onChange={(event) => setPathId(event.target.value)}
-              className="h-9 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+              onValueChange={(value) => setPathId(value ?? "")}
             >
-              <option value="" disabled>
-                Select a path
-              </option>
-              {paths.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.origin} → {item.destination} · {item.distance} km · {item.reason}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id={`${id}-path`} className="w-full min-w-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {pathItems
+                    .filter(
+                      (item): item is { label: string; value: string } =>
+                        item.value != null,
+                    )
+                    .map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor={`${id}-departure`}>Departure date</FieldLabel>
+              <FieldLabel htmlFor={`${id}-departure`}>
+                Departure date
+              </FieldLabel>
               <Input
                 id={`${id}-departure`}
                 type="date"
@@ -114,7 +153,10 @@ export function AddTripDialog({
                   const next = event.target.value;
                   setDepartureDate(next);
                   if (
-                    tripDatesSchema.safeParse({ departureDate: next, returnDate: next }).success
+                    tripDatesSchema.safeParse({
+                      departureDate: next,
+                      returnDate: next,
+                    }).success
                   ) {
                     setReturnDate(returnAfterNights(next, nights));
                   }
@@ -150,21 +192,28 @@ export function AddTripDialog({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              0 means you returned on the same day. Staying longer does not add kilometres.
+              0 means you returned on the same day. Staying longer does not add
+              kilometres.
             </p>
           </Field>
           {path ? (
-            <div className="rounded-xl border bg-muted/30 p-4 text-sm" aria-live="polite">
+            <div
+              className="rounded-xl border bg-muted/30 p-4 text-sm"
+              aria-live="polite"
+            >
               <p className="font-medium break-words">
                 {path.origin} → {path.destination} → {path.origin}
               </p>
               <div className="mt-2 flex justify-between gap-3 tabular-nums">
-                <span className="text-muted-foreground">{path.distance} km × 2 journeys</span>
+                <span className="text-muted-foreground">
+                  {path.distance} km × 2 journeys
+                </span>
                 <span className="font-semibold">
                   {formatAmount(path.distance * 2 * RATE_CENTS_PER_KM)}
                 </span>
               </div>
-              {datesValid && departureDate.slice(0, 7) !== returnDate.slice(0, 7) ? (
+              {datesValid &&
+              departureDate.slice(0, 7) !== returnDate.slice(0, 7) ? (
                 <p className="mt-3 text-xs text-muted-foreground">
                   Each journey will appear in its own travel month.
                 </p>
