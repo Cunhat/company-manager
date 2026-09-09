@@ -1,6 +1,6 @@
-import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
-import type { KmsEntry, KmsTrip, LocalKms, MonthlyKmsMap } from "../schemas/types";
-import { localKmsSchema, monthSchema } from "../schemas/validators";
+import dayjs from "./dates";
+import type { KmsEntry, KmsJourney, MonthlyKmsMap } from "../schemas/types";
+import { monthSchema } from "../schemas/validators";
 
 export const RATE_CENTS_PER_KM = 40;
 export const amountFormatter = new Intl.NumberFormat("en-IE", {
@@ -8,73 +8,36 @@ export const amountFormatter = new Intl.NumberFormat("en-IE", {
   currency: "EUR",
 });
 export const formatAmount = (cents: number) => amountFormatter.format(cents / 100);
-export const formatTravelDate = (date: string) => format(parseISO(date), "dd MMM yyyy");
+export const formatTravelDate = (date: string) => dayjs(date).format("DD MMM YYYY");
 export const nightsBetween = (departure: string, returned: string) =>
-  differenceInCalendarDays(parseISO(returned), parseISO(departure));
+  dayjs(returned).diff(dayjs(departure), "day");
 export const returnAfterNights = (departure: string, nights: number) =>
-  format(addDays(parseISO(departure), nights), "yyyy-MM-dd");
+  dayjs(departure).add(nights, "day").format("YYYY-MM-DD");
 
-export function entriesForMonth(trips: KmsTrip[], month: string): KmsEntry[] {
+export function entriesForMonth(journeys: KmsJourney[], month: string): KmsEntry[] {
   monthSchema.parse(month);
-  return trips
-    .flatMap((trip): KmsEntry[] => {
-      const common = {
-        tripId: trip.id,
-        pathId: trip.pathId,
-        reason: trip.reason,
-        distance: trip.distance,
-        amountCents: trip.distance * RATE_CENTS_PER_KM,
-      };
-      return [
-        {
-          ...common,
-          id: `${trip.id}:outward`,
-          direction: "outward",
-          date: trip.departureDate,
-          origin: trip.origin,
-          destination: trip.destination,
-        },
-        {
-          ...common,
-          id: `${trip.id}:return`,
-          direction: "return",
-          date: trip.returnDate,
-          origin: trip.destination,
-          destination: trip.origin,
-        },
-      ];
-    })
-    .filter((entry) => entry.date.slice(0, 7) === month)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  return journeys
+    .map((journey) => ({
+      id: journey.id,
+      date: dayjs.utc(journey.date).format("YYYY-MM-DD"),
+      origin: journey.origin,
+      destination: journey.destination,
+      reason: journey.reason,
+      distance: journey.distance,
+      amountCents: journey.distance * RATE_CENTS_PER_KM,
+    }))
+    .filter((entry) => dayjs(entry.date).isSame(dayjs(month), "month"))
+    .sort((a, b) => dayjs(a.date).diff(dayjs(b.date)));
 }
 
-export function generateMonthlyMap(trips: KmsTrip[], month: string): MonthlyKmsMap {
-  const entries = entriesForMonth(trips, month);
+export function generateMonthlyMap(journeys: KmsJourney[], month: string): MonthlyKmsMap {
+  const entries = entriesForMonth(journeys, month);
   return {
     month,
     ratePerKm: (RATE_CENTS_PER_KM / 100) as 0.4,
     entries,
     totalKilometres: entries.reduce((sum, entry) => sum + entry.distance, 0),
     totalAmountCents: entries.reduce((sum, entry) => sum + entry.amountCents, 0),
-    generatedAt: new Date().toISOString(),
+    generatedAt: dayjs().toISOString(),
   };
-}
-
-export function replaceTrips(state: LocalKms, trips: KmsTrip[], changedTrip: KmsTrip): LocalKms {
-  const maps = { ...state.maps };
-  delete maps[changedTrip.departureDate.slice(0, 7)];
-  delete maps[changedTrip.returnDate.slice(0, 7)];
-  return { ...state, trips, maps };
-}
-
-export const kmsStorageKey = (userId: string) => `company-manager:kms:v1:${userId}`;
-export const emptyLocalKms = (): LocalKms => ({ version: 1, trips: [], maps: {} });
-
-export function readLocalKms(storage: Pick<Storage, "getItem">, userId: string): LocalKms {
-  const raw = storage.getItem(kmsStorageKey(userId));
-  return raw === null ? emptyLocalKms() : localKmsSchema.parse(JSON.parse(raw));
-}
-
-export function writeLocalKms(storage: Pick<Storage, "setItem">, userId: string, state: LocalKms) {
-  storage.setItem(kmsStorageKey(userId), JSON.stringify(localKmsSchema.parse(state)));
 }

@@ -9,15 +9,49 @@ export function MonthlyMap({
   onAdd,
   canAdd,
   ready,
-  generatedAt,
+  removing,
 }: {
   entries: KmsEntry[];
-  onRemove: (tripId: string) => void;
+  onRemove: (journeyId: string) => void;
   onAdd: () => void;
   canAdd: boolean;
   ready: boolean;
-  generatedAt?: string;
+  removing: boolean;
 }) {
+  function renderJourney(entry: KmsEntry) {
+    function handleRemoveJourney() {
+      onRemove(entry.id);
+    }
+
+    return (
+      <tr key={entry.id} className="hover:bg-muted/30">
+        <td className="whitespace-nowrap px-5 py-4 text-muted-foreground tabular-nums">
+          <time dateTime={entry.date}>{formatTravelDate(entry.date)}</time>
+        </td>
+        <th scope="row" className="max-w-sm px-5 py-4 font-medium break-words">
+          {entry.origin} → {entry.destination}
+        </th>
+        <td className="max-w-xs px-5 py-4 break-words text-muted-foreground">{entry.reason}</td>
+        <td className="px-5 py-4 text-right tabular-nums">{entry.distance}</td>
+        <td className="px-5 py-4 text-right font-medium tabular-nums">
+          {formatAmount(entry.amountCents)}
+        </td>
+        <td className="px-5 py-4 text-right">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleRemoveJourney}
+            disabled={removing}
+            title="Remove this journey"
+            aria-label={`Remove journey from ${entry.origin} to ${entry.destination} on ${entry.date}`}
+          >
+            <IconTrash className="size-4" />
+          </Button>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <section
       className="min-w-0 overflow-hidden rounded-xl border bg-card"
@@ -33,7 +67,7 @@ export function MonthlyMap({
           </p>
         </div>
         <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-          {generatedAt ? "Generated · saved on this browser" : "Draft · saved on this browser"}
+          {ready ? "Saved" : "Loading..."}
         </span>
       </div>
       {!ready ? (
@@ -83,43 +117,11 @@ export function MonthlyMap({
                   Amount
                 </th>
                 <th scope="col" className="px-5 py-3">
-                  <span className="sr-only">Remove trip</span>
+                  <span className="sr-only">Remove journey</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {entries.map((entry) => (
-                <tr key={entry.id} className="hover:bg-muted/30">
-                  <td className="whitespace-nowrap px-5 py-4 text-muted-foreground tabular-nums">
-                    <time dateTime={entry.date}>{formatTravelDate(entry.date)}</time>
-                  </td>
-                  <th scope="row" className="max-w-sm px-5 py-4 font-medium break-words">
-                    {entry.origin} → {entry.destination}
-                    <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                      {entry.direction === "outward" ? "Outward" : "Return"}
-                    </span>
-                  </th>
-                  <td className="max-w-xs px-5 py-4 break-words text-muted-foreground">
-                    {entry.reason}
-                  </td>
-                  <td className="px-5 py-4 text-right tabular-nums">{entry.distance}</td>
-                  <td className="px-5 py-4 text-right font-medium tabular-nums">
-                    {formatAmount(entry.amountCents)}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => onRemove(entry.tripId)}
-                      title="Remove both journeys of this trip"
-                      aria-label={`Remove round trip for ${entry.origin} to ${entry.destination} on ${entry.date}`}
-                    >
-                      <IconTrash className="size-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody className="divide-y">{entries.map(renderJourney)}</tbody>
           </table>
         </div>
       )}

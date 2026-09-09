@@ -2,13 +2,14 @@ import { integer, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { relations } from "drizzle-orm";
 
-export const kmsPath = pgTable("kms_path", {
+export const journey = pgTable("journey", {
   id: uuid("id").primaryKey().defaultRandom(),
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
   reason: text("reason").notNull(),
   distance: integer("distance").notNull(),
   description: text("description"),
+  date: timestamp("date").notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -18,9 +19,9 @@ export const kmsPath = pgTable("kms_path", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const kmsPathRelations = relations(kmsPath, ({ one }) => ({
+export const journeyRelations = relations(journey, ({ one }) => ({
   user: one(user, {
-    fields: [kmsPath.userId],
+    fields: [journey.userId],
     references: [user.id],
   }),
 }));

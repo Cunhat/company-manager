@@ -34,6 +34,13 @@ Alchemy reads that value and passes it to the app. For Neon, use the pooled conn
 
 Generate and commit migration SQL with `bun run db:generate`, then apply it with `bun run db:migrate`.
 
+For an existing database with the old `kms_path.date` column, run
+[`packages/db/sql/20260909_kms_journeys.sql`](packages/db/sql/20260909_kms_journeys.sql)
+before using the journey endpoints. This standalone upgrade preserves path timestamps
+as `created_at` and creates the `journey` table. It is separate from the Drizzle
+migration journal, which has no committed baseline yet. Mileage now reads and writes
+journeys in the database; previous browser-only drafts are not imported.
+
 Then, run the development server:
 
 ```bash

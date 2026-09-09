@@ -1,4 +1,5 @@
 import z from "zod";
+import dayjs, { isTravelDate, isTravelMonth } from "../lib/dates";
 
 export const distanceSchema = z.number().int().positive().max(2_147_483_647);
 
@@ -19,35 +20,25 @@ export const createKmsPathSchema = z.object({
 
 export const tripDatesSchema = z
   .object({
-    departureDate: z.iso.date("Choose a valid departure date"),
-    returnDate: z.iso.date("Choose a valid return date"),
+    departureDate: z.string().refine(isTravelDate, "Choose a valid departure date"),
+    returnDate: z.string().refine(isTravelDate, "Choose a valid return date"),
   })
-  .refine((trip) => trip.returnDate >= trip.departureDate, {
+  .refine((trip) => !dayjs(trip.returnDate).isBefore(dayjs(trip.departureDate), "day"), {
     message: "Return date must be on or after departure",
     path: ["returnDate"],
   });
 
-export const tripSchema = z
-  .object({
-    id: z.uuid(),
-    pathId: z.uuid(),
-    origin: z.string().min(1),
-    destination: z.string().min(1),
-    reason: z.string().min(1),
-    distance: distanceSchema,
-    departureDate: z.iso.date(),
-    returnDate: z.iso.date(),
-  })
-  .refine((trip) => trip.returnDate >= trip.departureDate);
+export const createKmsTripSchema = tripDatesSchema.safeExtend({
+  pathId: z.uuid("Choose a saved path"),
+});
 
-export const monthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+export const journeyIdSchema = z.object({ id: z.uuid() });
+
+export const monthSchema = z.string().refine(isTravelMonth, "Choose a valid travel month");
 
 const entrySchema = z.object({
   id: z.string(),
-  tripId: z.uuid(),
-  pathId: z.uuid(),
-  direction: z.enum(["outward", "return"]),
-  date: z.iso.date(),
+  date: z.string().refine(isTravelDate, "Choose a valid travel date"),
   origin: z.string(),
   destination: z.string(),
   reason: z.string(),
@@ -62,10 +53,4 @@ export const monthlyMapSchema = z.object({
   totalKilometres: z.number().int().nonnegative(),
   totalAmountCents: z.number().int().nonnegative(),
   generatedAt: z.iso.datetime(),
-});
-
-export const localKmsSchema = z.object({
-  version: z.literal(1),
-  trips: z.array(tripSchema),
-  maps: z.record(monthSchema, monthlyMapSchema),
 });

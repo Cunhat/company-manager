@@ -1,26 +1,22 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { addMonths, format, parseISO } from "date-fns";
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconPlus,
-} from "@tabler/icons-react";
+import dayjs from "../lib/dates";
+import type { CreateKmsTrip, KmsJourney } from "../schemas/types";
+import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatePathDialog } from "../components/create-path-dialog";
 import { AddTripDialog } from "../components/add-trip-dialog";
-import { useLocalKms } from "../hooks/use-local-kms";
+import { entriesForMonth, formatAmount, generateMonthlyMap } from "../lib/maps";
 import {
-  entriesForMonth,
-  formatAmount,
-  generateMonthlyMap,
-  replaceTrips,
-} from "../lib/maps";
-import { getKmsPathsQuery } from "../server/functions";
+  createKmsTripMutation,
+  deleteKmsJourneyMutation,
+  getKmsJourneysQuery,
+  getKmsPathsQuery,
+} from "../server/functions";
 import { monthSchema } from "../schemas/validators";
 import { MonthlyMap } from "../sections/monthly-map";
 import { PathsList } from "../sections/paths-list";
@@ -34,39 +30,132 @@ export default function KmsView() {
 
 export function KmsWorkspace({ userId }: { userId: string }) {
   const [tab, setTab] = useState<string | number | null>("maps");
-  const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
+  const [month, setMonth] = useState(() => dayjs().format("YYYY-MM"));
   const [tripPathId, setTripPathId] = useState<string | null>(null);
 
-  const { state, ready, error, save } = useLocalKms(userId);
+  const client = useQueryClient();
 
-  const {
-    data: paths,
-    isError,
-    isFetching,
-    refetch,
-  } = useSuspenseQuery(getKmsPathsQuery(userId));
+  const journeys = useQuery(getKmsJourneysQuery(userId, month));
 
-  const entries = entriesForMonth(state.trips, month);
+  const createTrip = useMutation(createKmsTripMutation);
+  const deleteJourney = useMutation(deleteKmsJourneyMutation);
+
+  const ready = journeys.isSuccess;
+
+  const { data: paths, isError, isFetching, refetch } = useSuspenseQuery(getKmsPathsQuery(userId));
+
+  const entries = entriesForMonth(journeys.data ?? [], month);
   const totalKm = entries.reduce((sum, entry) => sum + entry.distance, 0);
   const totalCents = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
-  const canAdd = ready && paths.length > 0;
+  const canAdd = paths.length > 0;
 
   function addTrip(pathId = paths[0]?.id ?? "") {
     setTab("maps");
     setTripPathId(pathId);
   }
 
-  function generate() {
-    const map = generateMonthlyMap(state.trips, month);
-    if (!save({ ...state, maps: { ...state.maps, [month]: map } })) return;
-    console.log("Monthly KMS map", {
-      userId,
-      ...map,
-      totalReimbursement: map.totalAmountCents / 100,
+  function handleAddTrip() {
+    addTrip();
+  }
+
+  function handleCloseTrip() {
+    setTripPathId(null);
+  }
+
+  function handleRefreshPaths() {
+    void refetch();
+  }
+
+  function handleRefreshJourneys() {
+    void journeys.refetch();
+  }
+
+  function handlePreviousMonth() {
+    setMonth(dayjs(month).subtract(1, "month").format("YYYY-MM"));
+  }
+
+  function handleNextMonth() {
+    setMonth(dayjs(month).add(1, "month").format("YYYY-MM"));
+  }
+
+  function handleMonthChange(event: ChangeEvent<HTMLInputElement>) {
+    const result = monthSchema.safeParse(event.target.value);
+    if (result.success) setMonth(result.data);
+  }
+
+  function handleJourneyDeleted(deleted: KmsJourney) {
+    const query = getKmsJourneysQuery(userId, dayjs.utc(deleted.date).format("YYYY-MM"));
+    client.setQueryData(query.queryKey, (previous) =>
+      previous?.filter((item) => item.id !== deleted.id),
+    );
+    void client.invalidateQueries(query);
+    toast.success("Journey removed");
+  }
+
+  function handleDeleteError(cause: Error) {
+    toast.error(cause.message || "Could not remove journey. Please try again.");
+  }
+
+  function handleRemoveJourney(id: string) {
+    deleteJourney.mutate(
+      { id },
+      {
+        onSuccess: handleJourneyDeleted,
+        onError: handleDeleteError,
+      },
+    );
+  }
+
+  async function handleCreateTrip(trip: CreateKmsTrip) {
+    const created = await createTrip.mutateAsync(trip);
+    const months = new Set(created.map((item) => dayjs.utc(item.date).format("YYYY-MM")));
+    for (const affectedMonth of months) {
+      const query = getKmsJourneysQuery(userId, affectedMonth);
+      client.setQueryData(query.queryKey, (previous) =>
+        previous
+          ? [
+              ...previous,
+              ...created.filter(
+                (item) =>
+                  dayjs.utc(item.date).format("YYYY-MM") === affectedMonth &&
+                  !previous.some((saved) => saved.id === item.id),
+              ),
+            ]
+          : undefined,
+      );
+      void client.invalidateQueries(query);
+    }
+    setMonth(dayjs(trip.departureDate).format("YYYY-MM"));
+    toast.success("Trip added", {
+      description: "Outward and return journeys saved.",
     });
-    toast.success("Monthly map generated and saved", {
-      description: "The full result is available in the console.",
-    });
+  }
+
+  function handleDownloadMap() {
+    const map = generateMonthlyMap(journeys.data ?? [], month);
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mileage-${month}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success("Monthly map downloaded");
+  }
+
+  if (isError) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4 text-sm"
+      >
+        Could not refresh saved paths.
+        <Button variant="outline" disabled={isFetching} onClick={handleRefreshPaths}>
+          Try again
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -77,54 +166,23 @@ export function KmsWorkspace({ userId }: { userId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <CreatePathDialog userId={userId} />
-          <Button disabled={!canAdd} onClick={() => addTrip()}>
+          <Button disabled={!canAdd} onClick={handleAddTrip}>
             <IconPlus data-icon="inline-start" />
             Add trip
           </Button>
         </div>
       </div>
-      {isError ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4 text-sm"
-        >
-          Could not refresh saved paths.
-          <Button
-            variant="outline"
-            disabled={isFetching}
-            onClick={() => void refetch()}
-          >
-            Try again
-          </Button>
-        </div>
-      ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        className="flex min-w-0 flex-col gap-6"
-      >
+      <Tabs value={tab} onValueChange={setTab} className="flex min-w-0 flex-col gap-6">
         <TabsList aria-label="Mileage sections">
           <TabsTrigger value="maps">Monthly maps</TabsTrigger>
           <TabsTrigger value="paths">
-            Paths{" "}
-            <span className="ml-1.5 text-xs tabular-nums">{paths.length}</span>
+            Paths <span className="ml-1.5 text-xs tabular-nums">{paths.length}</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="maps" className="flex min-w-0 flex-col gap-5">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <label
-                htmlFor="kms-month"
-                className="mb-2 block text-sm font-medium"
-              >
+              <label htmlFor="kms-month" className="mb-2 block text-sm font-medium">
                 Travel month
               </label>
               <div className="flex items-center gap-2">
@@ -132,11 +190,7 @@ export function KmsWorkspace({ userId }: { userId: string }) {
                   variant="outline"
                   size="icon"
                   aria-label="Previous month"
-                  onClick={() =>
-                    setMonth(
-                      format(addMonths(parseISO(`${month}-01`), -1), "yyyy-MM"),
-                    )
-                  }
+                  onClick={handlePreviousMonth}
                 >
                   <IconChevronLeft />
                 </Button>
@@ -145,30 +199,20 @@ export function KmsWorkspace({ userId }: { userId: string }) {
                   className="w-44"
                   type="month"
                   value={month}
-                  onChange={(event) => {
-                    if (monthSchema.safeParse(event.target.value).success)
-                      setMonth(event.target.value);
-                  }}
+                  onChange={handleMonthChange}
                 />
                 <Button
                   variant="outline"
                   size="icon"
                   aria-label="Next month"
-                  onClick={() =>
-                    setMonth(
-                      format(addMonths(parseISO(`${month}-01`), 1), "yyyy-MM"),
-                    )
-                  }
+                  onClick={handleNextMonth}
                 >
                   <IconChevronRight />
                 </Button>
               </div>
             </div>
-            <Button
-              disabled={!ready || entries.length === 0}
-              onClick={generate}
-            >
-              Generate map
+            <Button disabled={!ready || entries.length === 0} onClick={handleDownloadMap}>
+              Download map
             </Button>
           </div>
           <dl
@@ -176,48 +220,44 @@ export function KmsWorkspace({ userId }: { userId: string }) {
             aria-live="polite"
           >
             {[
-              { label: "Journeys", value: entries.length },
+              { label: "Journeys", value: ready ? entries.length : "—" },
               {
                 label: "Total kilometres",
-                value: `${totalKm.toLocaleString("en-GB")} km`,
+                value: ready ? `${totalKm.toLocaleString("en-GB")} km` : "—",
               },
               {
                 label: "Reimbursement · €0.40/km",
-                value: formatAmount(totalCents),
+                value: ready ? formatAmount(totalCents) : "—",
               },
-            ].map((stat) => (
-              <div key={stat.label} className="px-5 py-5">
-                <dt className="text-xs text-muted-foreground">{stat.label}</dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
-                  {stat.value}
-                </dd>
-              </div>
-            ))}
+            ].map(renderStat)}
           </dl>
-          <MonthlyMap
-            entries={entries}
-            ready={ready}
-            canAdd={canAdd}
-            onAdd={() => addTrip()}
-            generatedAt={state.maps[month]?.generatedAt}
-            onRemove={(tripId) => {
-              const trip = state.trips.find((item) => item.id === tripId);
-              if (
-                trip &&
-                save(
-                  replaceTrips(
-                    state,
-                    state.trips.filter((item) => item.id !== tripId),
-                    trip,
-                  ),
-                )
-              )
-                toast.success("Outward and return journeys removed");
-            }}
-          />
+          {journeys.isError ? (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 p-4 text-sm"
+            >
+              Could not load journeys for this month.
+              <Button
+                variant="outline"
+                disabled={journeys.isFetching}
+                onClick={handleRefreshJourneys}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : (
+            <MonthlyMap
+              entries={entries}
+              ready={ready}
+              canAdd={canAdd}
+              onAdd={handleAddTrip}
+              removing={deleteJourney.isPending}
+              onRemove={handleRemoveJourney}
+            />
+          )}
         </TabsContent>
         <TabsContent value="paths" className="min-w-0">
-          <PathsList paths={paths} disabled={!ready} onUse={addTrip} />
+          <PathsList paths={paths} disabled={false} onUse={addTrip} />
         </TabsContent>
       </Tabs>
       {tripPathId !== null ? (
@@ -225,18 +265,19 @@ export function KmsWorkspace({ userId }: { userId: string }) {
           paths={paths}
           month={month}
           initialPathId={tripPathId}
-          onClose={() => setTripPathId(null)}
-          onAdd={(trip) => {
-            if (!save(replaceTrips(state, [...state.trips, trip], trip)))
-              return false;
-            setMonth(trip.departureDate.slice(0, 7));
-            toast.success("Trip added", {
-              description: "Outward and return journeys saved.",
-            });
-            return true;
-          }}
+          onClose={handleCloseTrip}
+          onAdd={handleCreateTrip}
         />
       ) : null}
+    </div>
+  );
+}
+
+function renderStat(stat: { label: string; value: string | number }) {
+  return (
+    <div key={stat.label} className="px-5 py-5">
+      <dt className="text-xs text-muted-foreground">{stat.label}</dt>
+      <dd className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{stat.value}</dd>
     </div>
   );
 }
