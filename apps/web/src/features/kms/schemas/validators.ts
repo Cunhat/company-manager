@@ -42,6 +42,7 @@ const entrySchema = z.object({
   origin: z.string(),
   destination: z.string(),
   reason: z.string(),
+  description: z.string().nullable(),
   distance: distanceSchema,
   amountCents: z.number().int().nonnegative(),
 });

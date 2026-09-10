@@ -51,6 +51,15 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
+### Monthly mileage PDF
+
+In Mileage, select a month and choose **Descarregar PDF**. Confirm the company name
+and download the Portuguese A4 landscape report. The report uses the last day of
+the selected month and includes each saved journey, its purpose and notes,
+kilometres, reimbursement at €0.40/km, monthly totals, and space for a signature.
+Long reports repeat the table headings and include page numbers. Employee and
+vehicle details are not included yet. PDF generation runs in the browser.
+
 shadcn/ui lives in the web app.
 
 - Change design tokens and global styles in `apps/web/src/index.css`

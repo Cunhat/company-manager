@@ -49,6 +49,7 @@ describe("database journey maps", () => {
     assert.equal(result.totalKilometres, 274);
     assert.equal(result.totalAmountCents, 10960);
     assert.equal(result.ratePerKm, 0.4);
+    assert.equal(result.entries[0].description, path.description);
   });
 
   it("keeps repeated paths as distinct journeys and sorts travel dates", () => {

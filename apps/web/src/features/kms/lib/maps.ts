@@ -23,6 +23,7 @@ export function entriesForMonth(journeys: KmsJourney[], month: string): KmsEntry
       origin: journey.origin,
       destination: journey.destination,
       reason: journey.reason,
+      description: journey.description,
       distance: journey.distance,
       amountCents: journey.distance * RATE_CENTS_PER_KM,
     }))
