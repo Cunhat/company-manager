@@ -18,6 +18,7 @@ import {
   IconReceiptEuroFilled,
   IconFileInvoiceFilled,
   IconRoute,
+  IconCalendarDollar,
 } from "@tabler/icons-react";
 
 const data = {
@@ -132,6 +133,11 @@ const data = {
       name: "Mileage",
       url: "/kms",
       icon: <IconRoute />,
+    },
+    {
+      name: "Per diems",
+      url: "/per-diems",
+      icon: <IconCalendarDollar />,
     },
   ],
 };
