@@ -2,10 +2,7 @@ import z from "zod";
 import dayjs, { isTravelDate } from "@/features/kms/lib/dates";
 import { exportMonthlyPdfSchema, monthSchema } from "@/features/kms/schemas/validators";
 
-export const exportPerDiemPdfSchema = exportMonthlyPdfSchema.pick({
-  company: true,
-  employee: true,
-});
+export const exportPerDiemPdfSchema = exportMonthlyPdfSchema;
 
 export const territorySchema = z.enum(["portugal", "abroad"]);
 export const perDiemTypeSchema = z.enum(["daily", "departure", "intermediate", "return"]);

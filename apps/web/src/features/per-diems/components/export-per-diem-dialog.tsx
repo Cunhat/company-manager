@@ -24,6 +24,8 @@ const fields = [
     maxLength: 250,
     autoComplete: "organization",
   },
+  { name: "car", label: "Car", maxLength: 100, autoComplete: "off" },
+  { name: "licensePlate", label: "License plate", maxLength: 20, autoComplete: "off" },
   {
     name: "employee",
     label: "Employee / manager",
@@ -47,7 +49,7 @@ export function ExportPerDiemDialog({
   const form = useForm({
     defaultValues: {
       company: "TIAGO MARQUES CUNHA Unipessoal Lda",
-      employee: defaultExportDetails.employee,
+      ...defaultExportDetails,
     },
     validators: {
       onChange: exportPerDiemPdfSchema,

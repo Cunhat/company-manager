@@ -24,7 +24,7 @@ export function createPerDiemPdf(
   entries: PerDiem[],
   month: string,
   company: string,
-  details: Pick<ExportDetails, "employee"> = { employee: defaultExportDetails.employee },
+  details: ExportDetails = defaultExportDetails,
 ) {
   const profile = exportPerDiemPdfSchema.parse({ company, ...details });
   const days = perDiemsForMonth(entries, month);
@@ -47,29 +47,41 @@ export function createPerDiemPdf(
     author: profile.company,
     creator: "Company Manager",
   });
-  doc.setFont("helvetica", "bold").setFontSize(10);
-  const companyLines = doc.splitTextToSize(profile.company, contentWidth - 65) as string[];
-  const companyHeight = Math.max(16, 9 + companyLines.length * 4.5);
-  const employeeLines = doc.splitTextToSize(
-    `Funcionário / gerente: ${profile.employee}`,
-    contentWidth - 8,
-  ) as string[];
-  const employeeHeight = Math.max(12, 5 + employeeLines.length * 4.5);
-  const tableY = 34 + companyHeight + employeeHeight + 4;
+  const headerFields = [
+    { label: "Empresa", value: profile.company, share: 0.4 },
+    { label: "Funcionário / gerente", value: profile.employee, share: 0.22 },
+    { label: "Veículo", value: profile.car, share: 0.16 },
+    { label: "Matrícula", value: profile.licensePlate, share: 0.11 },
+    { label: "Data", value: reportDate, share: 0.11 },
+  ];
+  doc.setFont("helvetica", "bold").setFontSize(9);
+  const headerColumns = headerFields.map((field) => ({
+    ...field,
+    width: contentWidth * field.share,
+    lines: doc.splitTextToSize(field.value, contentWidth * field.share - 8) as string[],
+  }));
+  const headerHeight = Math.max(
+    16,
+    10 + Math.max(...headerColumns.map((field) => field.lines.length)) * 4,
+  );
+  const tableY = 34 + headerHeight + 4;
 
   function drawHeader() {
     doc.setTextColor(blue).setFont("helvetica", "bold").setFontSize(21);
     doc.text("MAPA DE AJUDAS DE CUSTO", width / 2, 25, { align: "center" });
-    doc.setFillColor("#F3F6F8").rect(margin, 34, contentWidth, companyHeight, "F");
-    doc.setFontSize(7).setTextColor(muted);
-    doc.text("EMPRESA", margin + 4, 39);
-    doc.text("DATA", right - 35, 39);
-    doc.setFontSize(10).setTextColor(ink);
-    doc.text(companyLines, margin + 4, 44, { lineHeightFactor: 1.28 });
-    doc.text(reportDate, right - 35, 44);
-    const y = 34 + companyHeight;
-    doc.setFillColor("#E2EFD9").rect(margin, y, contentWidth, employeeHeight, "F");
-    doc.text(employeeLines, margin + 4, y + 6, { lineHeightFactor: 1.28 });
+    doc.setFillColor("#F3F6F8").rect(margin, 34, contentWidth, headerHeight, "F");
+    let x = margin;
+    for (const [index, field] of headerColumns.entries()) {
+      if (index > 0) {
+        doc.setDrawColor(rule).setLineWidth(0.25);
+        doc.line(x, 37, x, 34 + headerHeight - 3);
+      }
+      doc.setFont("helvetica", "normal").setFontSize(7).setTextColor(muted);
+      doc.text(field.label, x + 4, 39);
+      doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(ink);
+      doc.text(field.lines, x + 4, 44, { lineHeightFactor: 1.28 });
+      x += field.width;
+    }
   }
 
   let summaryY = tableY;
@@ -163,7 +175,7 @@ export async function downloadPerDiemPdf(
   entries: PerDiem[],
   month: string,
   company: string,
-  details: Pick<ExportDetails, "employee"> = { employee: defaultExportDetails.employee },
+  details: ExportDetails = defaultExportDetails,
 ) {
   await createPerDiemPdf(entries, month, company, details).save(
     `mapa-ajudas-de-custo-${month}.pdf`,

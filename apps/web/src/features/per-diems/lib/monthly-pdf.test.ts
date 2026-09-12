@@ -67,7 +67,7 @@ export function exampleEntries(): PerDiem[] {
 }
 
 describe("per diem PDF", () => {
-  it("exports the €326.91 total with manager and signature but no vehicle details", () => {
+  it("exports the €326.91 total with company, manager, vehicle details and signature", () => {
     const doc = createPerDiemPdf(exampleEntries(), "2026-08", "TIAGO MARQUES CUNHA Unipessoal Lda");
     const output = doc.output();
     for (const text of [
@@ -84,7 +84,7 @@ describe("per diem PDF", () => {
     ])
       assert.ok(output.includes(text), text);
     for (const text of ["Volvo V40", "04-VX-77", "Veículo", "Matrícula"])
-      assert.ok(!output.includes(text), text);
+      assert.ok(output.includes(text), text);
     assert.equal(doc.getNumberOfPages(), 1);
   });
   it("filters the month, sorts dates, and sums stored historical rates", () => {
@@ -104,8 +104,10 @@ describe("per diem PDF", () => {
   it("uses edited export details and leap-year month end", () => {
     const output = createPerDiemPdf([entry({ date: "2028-02-29" })], "2028-02", " Outra Empresa ", {
       employee: "Maria Silva",
+      car: "Renault Clio",
+      licensePlate: "AA-12-BB",
     }).output();
-    for (const text of ["Outra Empresa", "Maria Silva", "29/02/2028"])
+    for (const text of ["Outra Empresa", "Maria Silva", "Renault Clio", "AA-12-BB", "29/02/2028"])
       assert.ok(output.includes(text));
     assert.ok(!output.includes("Tiago Cunha"));
   });
