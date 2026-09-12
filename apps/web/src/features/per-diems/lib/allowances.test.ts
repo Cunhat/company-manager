@@ -18,6 +18,7 @@ const source: KmsJourney = {
   origin: "Sede",
   destination: "Coimbra",
   reason: "Reunião com equipa técnica",
+  isReturn: false,
   description: null,
   distance: 190,
   date: new Date("2026-08-06T00:00:00Z"),
@@ -191,6 +192,7 @@ describe("mileage trip pairing", () => {
     origin: returning ? source.destination : source.origin,
     destination: returning ? source.origin : source.destination,
     reason: returning ? "Regresso" : source.reason,
+    isReturn: returning,
     ...changes,
   });
   it("pairs unordered legs and automatically fills every overnight day", () => {
@@ -220,7 +222,7 @@ describe("mileage trip pairing", () => {
   it("pairs repeated routes separately and supports legacy return purposes", () => {
     const trips = pairMileageJourneys([
       source,
-      leg("2026-08-08", true, { reason: source.reason }),
+      leg("2026-08-08", true, { reason: source.reason, isReturn: null }),
       leg("2026-08-10"),
       leg("2026-08-12", true),
     ]);
@@ -229,6 +231,46 @@ describe("mileage trip pairing", () => {
       trips.map((trip) => valuesFromJourney(trip, "2026-08").returnDate),
       ["2026-08-08", "2026-08-12"],
     );
+  });
+  it("keeps outward journeys with Regresso as their business purpose", () => {
+    for (const reason of ["Regresso", " regresso ", "REGRESSO"]) {
+      for (const isReturn of [false, null]) {
+        const outward = leg("2026-08-06", false, { reason, isReturn });
+        const returning = leg("2026-08-08", true, { reason: "Client meeting" });
+        const [trip] = pairMileageJourneys([returning, outward]);
+        assert.equal(trip.id, outward.id);
+        assert.equal(trip.returnJourney?.id, returning.id);
+        assert.equal(valuesFromJourney(trip, "2026-08").reason, reason);
+        assert.equal(pairMileageJourneys([outward])[0].id, outward.id);
+      }
+    }
+  });
+  it("uses recorded direction to order same-day legs with identical creation times", () => {
+    const outward = leg("2026-08-06", false, { id: "z", reason: "Regresso" });
+    const returning = leg("2026-08-06", true, { id: "a", reason: "Client meeting" });
+    const trips = pairMileageJourneys([returning, outward]);
+    assert.equal(trips.length, 1);
+    assert.equal(trips[0].id, outward.id);
+    assert.equal(trips[0].returnJourney?.id, returning.id);
+  });
+  it("does not treat a known outward journey on the reverse route as a return", () => {
+    const otherOutward = leg("2026-08-08", true, { isReturn: false });
+    const trips = pairMileageJourneys([source, otherOutward]);
+    assert.equal(trips.length, 2);
+    assert.ok(trips.every((trip) => !trip.returnJourney));
+  });
+  it("excludes known orphan returns regardless of their purpose", () => {
+    const returning = leg("2026-08-08", true, { reason: "Client meeting" });
+    assert.deepEqual(pairMileageJourneys([returning]), []);
+  });
+  it("pairs legacy legs by route and chronology without reserving purpose text", () => {
+    const outward = leg("2026-08-06", false, { isReturn: null, reason: "Regresso" });
+    const returning = leg("2026-08-08", true, { isReturn: null, reason: "Client meeting" });
+    const trips = pairMileageJourneys([returning, outward]);
+    assert.equal(trips.length, 1);
+    assert.equal(trips[0].id, outward.id);
+    assert.equal(trips[0].returnJourney?.id, returning.id);
+    assert.equal(pairMileageJourneys([returning])[0].id, returning.id);
   });
   it("does not borrow another owner's return or skip the next outward trip", () => {
     const trips = pairMileageJourneys([

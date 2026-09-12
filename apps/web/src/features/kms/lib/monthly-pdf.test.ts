@@ -11,6 +11,7 @@ function journey(overrides: Partial<KmsJourney> = {}): KmsJourney {
     origin: "Sede",
     destination: "Coimbra",
     reason: "Reunião com equipa técnica",
+    isReturn: false,
     description: "Apresentação da proposta",
     distance: 190,
     createdAt: new Date("2026-09-09T12:00:00Z"),

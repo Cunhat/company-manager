@@ -2,6 +2,8 @@
 -- Allowance snapshots survive deletion of the source mileage journey.
 BEGIN;
 
+ALTER TABLE "journey" ADD COLUMN IF NOT EXISTS "is_return" boolean;
+
 CREATE TABLE "per_diem" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "user_id" text NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
@@ -9,6 +11,7 @@ CREATE TABLE "per_diem" (
   "date" date NOT NULL,
   "destination" text NOT NULL,
   "reason" text NOT NULL,
+  "description" text NOT NULL DEFAULT '',
   "type" text NOT NULL,
   "territory" text NOT NULL,
   "daily_rate_cents" integer NOT NULL,

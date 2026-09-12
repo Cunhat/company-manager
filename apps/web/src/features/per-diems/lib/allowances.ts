@@ -133,14 +133,14 @@ function reverseRoute(outward: KmsJourney, returning: KmsJourney) {
   );
 }
 
-// Legacy mileage has no trip identifier. Match each reverse leg once, before the next
-// departure on the same route, and never infer an overnight stay from an orphan return.
+// Match each reverse leg once, before the next departure on the same route.
+// Legacy journeys have no direction metadata, so infer their direction from the route
+// and chronology. Purpose text never determines direction.
 export function pairMileageJourneys(journeys: KmsJourney[]): PerDiemJourney[] {
   const sorted = [...journeys].sort(
     (a, b) =>
       travelDate(a).localeCompare(travelDate(b)) ||
-      Number(a.reason.trim().toLowerCase() === "regresso") -
-        Number(b.reason.trim().toLowerCase() === "regresso") ||
+      Number(a.isReturn === true) - Number(b.isReturn === true) ||
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
       a.id.localeCompare(b.id),
   );
@@ -148,7 +148,7 @@ export function pairMileageJourneys(journeys: KmsJourney[]): PerDiemJourney[] {
   const trips: PerDiemJourney[] = [];
   for (let index = 0; index < sorted.length; index++) {
     const outward = sorted[index];
-    if (used.has(outward.id) || outward.reason.trim().toLowerCase() === "regresso") continue;
+    if (used.has(outward.id) || outward.isReturn === true) continue;
     let returning: KmsJourney | undefined;
     for (let next = index + 1; next < sorted.length; next++) {
       const candidate = sorted[next];
@@ -160,7 +160,7 @@ export function pairMileageJourneys(journeys: KmsJourney[]): PerDiemJourney[] {
         travelDate(candidate) !== travelDate(outward)
       )
         break;
-      if (reverseRoute(outward, candidate)) {
+      if (candidate.isReturn !== false && reverseRoute(outward, candidate)) {
         returning = candidate;
         used.add(candidate.id);
         break;

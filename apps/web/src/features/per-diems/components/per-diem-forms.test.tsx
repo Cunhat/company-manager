@@ -62,6 +62,7 @@ const source: KmsJourney = {
   origin: "Sede",
   destination: "Coimbra",
   reason: "Reunião com a equipa",
+  isReturn: false,
   description: null,
   distance: 190,
   date: new Date("2026-08-06T00:00:00Z"),

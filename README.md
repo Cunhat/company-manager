@@ -162,4 +162,6 @@ company-manager/
 
 Per diem overnight trips pair reversed mileage routes by date and prefill the return date, including across months. Overnight days start at 100% with description `Com prenoita`; the domestic return starts at 25% with purpose `Regresso` and the reversed route. These are editable starting percentages for review against travel times and separately paid expenses. Same-day trips create one daily allowance. Saved entries are not recalculated.
 
-After the initial per diem SQL, apply `packages/db/sql/20260912_per_diem_description.sql` to add the description column to existing installations. The Drizzle schema also includes the column for new installations.
+New mileage trips store their outward/return direction separately from the editable purpose. Per diem pairing uses that direction to exclude orphan returns. Older journeys have no recorded direction and are paired by route and chronology; unmatched older journeys remain available regardless of their purpose.
+
+The initial `packages/db/sql/20260912_per_diems.sql` script includes the per diem description and mileage direction columns. For databases that already applied an earlier version, run both `packages/db/sql/20260912_per_diem_description.sql` and `packages/db/sql/20260912_journey_direction.sql` before deploying this version. Both upgrade scripts are safe to rerun. The Drizzle schema includes these columns for new installations.

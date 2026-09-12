@@ -23,6 +23,7 @@ function savedTrip(departureDate = "2026-09-07", returnDate = departureDate): Km
     ...values,
     id: crypto.randomUUID(),
     description: values.description ?? null,
+    isReturn: values.isReturn ?? null,
     createdAt: new Date("2026-09-09T12:00:00Z"),
     updatedAt: new Date("2026-09-09T12:00:00Z"),
   }));
@@ -45,6 +46,8 @@ describe("database journey maps", () => {
     }
     assert.equal(journeys[0].reason, path.reason);
     assert.equal(journeys[1].reason, "Regresso");
+    assert.equal(journeys[0].isReturn, false);
+    assert.equal(journeys[1].isReturn, true);
     const result = generateMonthlyMap(journeys, "2026-09");
     assert.equal(result.entries.length, 2);
     assert.equal(result.totalKilometres, 274);
