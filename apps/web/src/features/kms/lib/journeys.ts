@@ -27,12 +27,15 @@ export function journeysFromPath(
   return [
     {
       ...common,
+      isReturn: false,
       origin: path.origin,
       destination: path.destination,
       date: dayjs.utc(dates.departureDate).toDate(),
     },
     {
       ...common,
+      isReturn: true,
+      reason: "Regresso",
       origin: path.destination,
       destination: path.origin,
       date: dayjs.utc(dates.returnDate).toDate(),

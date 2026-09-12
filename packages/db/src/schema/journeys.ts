@@ -1,4 +1,4 @@
-import { integer, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { relations } from "drizzle-orm";
 
@@ -7,6 +7,8 @@ export const journey = pgTable("journey", {
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
   reason: text("reason").notNull(),
+  // Null identifies legacy journeys whose direction was not recorded.
+  isReturn: boolean("is_return"),
   distance: integer("distance").notNull(),
   description: text("description"),
   date: timestamp("date").notNull(),
