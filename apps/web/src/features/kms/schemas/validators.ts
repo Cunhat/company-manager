@@ -3,6 +3,13 @@ import dayjs, { isTravelDate, isTravelMonth } from "../lib/dates";
 
 export const distanceSchema = z.number().int().positive().max(2_147_483_647);
 
+export const exportMonthlyPdfSchema = z.object({
+  company: z.string().trim().min(1, "Enter a company name").max(250),
+  car: z.string().trim().min(1, "Enter a car").max(100),
+  licensePlate: z.string().trim().min(1, "Enter a license plate").max(20),
+  employee: z.string().trim().min(1, "Enter an employee name").max(100),
+});
+
 export const createKmsPathSchema = z.object({
   origin: z.string().trim().min(1, "Enter an origin").max(250),
   destination: z.string().trim().min(1, "Enter a destination").max(250),

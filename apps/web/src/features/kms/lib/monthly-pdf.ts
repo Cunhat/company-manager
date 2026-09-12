@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import dayjs from "./dates";
 import { generateMonthlyMap } from "./maps";
+import { defaultExportDetails, type ExportDetails } from "./export-details";
 import type { KmsJourney } from "../schemas/types";
 
 const numberFormatter = new Intl.NumberFormat("pt-PT", {
@@ -30,17 +31,29 @@ export function createMonthlyPdf(
   journeys: KmsJourney[],
   month: string,
   company: string,
+  details: ExportDetails = defaultExportDetails,
 ) {
   const companyName = company.trim();
   if (!companyName || companyName.length > 250) {
-    throw new Error(
-      "Indique o nome da empresa, com um máximo de 250 caracteres.",
-    );
+    throw new Error("Enter a company name with no more than 250 characters.");
+  }
+
+  const car = details.car.trim();
+  const licensePlate = details.licensePlate.trim();
+  const employee = details.employee.trim();
+  for (const [label, value, maxLength] of [
+    ["car", car, 100],
+    ["license plate", licensePlate, 20],
+    ["employee name", employee, 100],
+  ] as const) {
+    if (!value || value.length > maxLength) {
+      throw new Error(`Enter a ${label} with no more than ${maxLength} characters.`);
+    }
   }
 
   const map = generateMonthlyMap(journeys, month);
   if (map.entries.length === 0) {
-    throw new Error("Não existem deslocações para exportar neste mês.");
+    throw new Error("There are no journeys to export for this month.");
   }
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -61,30 +74,41 @@ export function createMonthlyPdf(
   });
 
   doc.setFont("helvetica", "bold").setFontSize(10);
-  const companyLines: string[] = doc.splitTextToSize(
-    companyName,
-    contentWidth - 78,
+  const headerFields = [
+    { label: "EMPRESA", value: companyName, width: contentWidth - 171 },
+    { label: "VIATURA", value: car, width: 45 },
+    { label: "MATRÍCULA", value: licensePlate, width: 36 },
+    { label: "NOME DO COLABORADOR", value: employee, width: 53 },
+    { label: "DATA DO MAPA", value: reportDate, width: 37 },
+  ].map((field) => ({
+    ...field,
+    lines: doc.splitTextToSize(field.value, field.width - 10) as string[],
+  }));
+  const companyBoxHeight = Math.max(
+    19,
+    12 + Math.max(...headerFields.map((field) => field.lines.length)) * 4.5,
   );
-  const companyBoxHeight = Math.max(19, 12 + companyLines.length * 4.5);
   const tableY = 35 + companyBoxHeight + 5;
 
   function drawHeader() {
-    doc.setTextColor(blue).setFontSize(22);
+    doc.setTextColor(blue).setFont("helvetica", "bold").setFontSize(22);
     doc.text("Mapa de quilómetros", margin, 26);
     doc.setFont("helvetica", "normal").setFontSize(11);
     doc.text(periodTitle, right, 25.5, { align: "right" });
 
-    doc
-      .setFillColor(paper)
-      .roundedRect(margin, 35, contentWidth, companyBoxHeight, 1.5, 1.5, "F");
-    doc.setTextColor(muted).setFont("helvetica", "bold").setFontSize(7);
-    doc.text("EMPRESA", margin + 5, 41);
-    doc.text("DATA DO MAPA", right - 50, 41);
-    doc.setDrawColor(rule).setLineWidth(0.2);
-    doc.line(right - 57, 39, right - 57, 35 + companyBoxHeight - 4);
-    doc.setTextColor(ink).setFontSize(10);
-    doc.text(companyLines, margin + 5, 47, { lineHeightFactor: 1.28 });
-    doc.text(reportDate, right - 50, 47);
+    doc.setFillColor(paper).roundedRect(margin, 35, contentWidth, companyBoxHeight, 1.5, 1.5, "F");
+    let fieldX = margin;
+    for (const [index, field] of headerFields.entries()) {
+      if (index > 0) {
+        doc.setDrawColor(rule).setLineWidth(0.2);
+        doc.line(fieldX, 39, fieldX, 35 + companyBoxHeight - 4);
+      }
+      doc.setTextColor(muted).setFont("helvetica", "bold").setFontSize(7);
+      doc.text(field.label, fieldX + 5, 41);
+      doc.setTextColor(ink).setFontSize(10);
+      doc.text(field.lines, fieldX + 5, 47, { lineHeightFactor: 1.28 });
+      fieldX += field.width;
+    }
   }
 
   // Adjacent journeys on the same date share a tint, keeping return legs easy to scan.
@@ -106,24 +130,15 @@ export function createMonthlyPdf(
     rowPageBreak: "avoid",
     // Reserve the totals and signature with the final journey, avoiding an orphaned summary.
     foot: [[{ content: "", colSpan: 6 }]],
-    footStyles: { minCellHeight: 51, fillColor: "#FFFFFF", lineWidth: 0 },
-    head: [
-      [
-        "DATA",
-        "TRAJETO PERCORRIDO",
-        "FINALIDADE",
-        "KM",
-        "OBSERVAÇÕES",
-        "VALOR (€)",
-      ],
-    ],
+    footStyles: { minCellHeight: 48, fillColor: "#FFFFFF", lineWidth: 0 },
+    head: [["DATA", "TRAJETO PERCORRIDO", "FINALIDADE", "KM", "OBSERVAÇÕES", "VALOR"]],
     body: map.entries.map((entry) => [
       dayjs.utc(entry.date).format("DD/MM/YYYY"),
       `${entry.origin} - ${entry.destination}`,
       entry.reason,
       numberFormatter.format(entry.distance),
       entry.description ?? "",
-      moneyFormatter.format(entry.amountCents / 100),
+      `${moneyFormatter.format(entry.amountCents / 100)} €`,
     ]),
     styles: {
       font: "helvetica",
@@ -155,51 +170,48 @@ export function createMonthlyPdf(
     },
     willDrawPage: drawHeader,
     didDrawCell: ({ section, cell }) => {
-      if (section === "foot") summaryY = cell.y + 5;
+      if (section === "foot") summaryY = cell.y + 3;
     },
   });
 
-  const totalWidth = 100;
-  const detailWidth = (contentWidth - totalWidth) / 2;
-  const totalX = right - totalWidth;
-  doc.setFillColor(paper).rect(margin, summaryY, contentWidth, 21, "F");
-  doc.setFillColor(blue).rect(totalX, summaryY, totalWidth, 21, "F");
-  doc.setTextColor(muted).setFont("helvetica", "bold").setFontSize(7);
-  doc.text("TOTAL DE QUILÓMETROS", margin + 5, summaryY + 6);
-  doc.text("VALOR UNITÁRIO", margin + detailWidth + 5, summaryY + 6);
-  doc.setDrawColor(rule).setLineWidth(0.2);
-  doc.line(
-    margin + detailWidth,
-    summaryY + 4,
-    margin + detailWidth,
-    summaryY + 17,
-  );
-  doc.setTextColor(blue).setFontSize(16);
-  doc.text(
-    `${numberFormatter.format(map.totalKilometres)} km`,
-    margin + 5,
-    summaryY + 15,
-  );
-  doc.setFontSize(13);
-  doc.text(
-    `${moneyFormatter.format(map.ratePerKm)} €/km`,
-    margin + detailWidth + 5,
-    summaryY + 15,
-  );
-  doc.setTextColor("#FFFFFF").setFontSize(7);
-  doc.text("TOTAL A RECEBER", totalX + 6, summaryY + 6);
-  const totalText = `${moneyFormatter.format(map.totalAmountCents / 100)} €`;
-  doc.setFontSize(20);
-  // Preserve the full amount even for unusually large totals.
-  const amountWidth = doc.getTextWidth(totalText);
-  if (amountWidth > totalWidth - 12)
-    doc.setFontSize((20 * (totalWidth - 12)) / amountWidth);
-  doc.text(totalText, right - 6, summaryY + 16, { align: "right" });
+  const summaryLeft = right - 95;
+  const summaryRows = [
+    {
+      label: "Total de quilómetros",
+      value: `${numberFormatter.format(map.totalKilometres)} km`,
+      y: 4,
+    },
+    {
+      label: "Valor por quilómetro",
+      value: `${moneyFormatter.format(map.ratePerKm)} €`,
+      y: 10,
+    },
+    {
+      label: "TOTAL A RECEBER",
+      value: `${moneyFormatter.format(map.totalAmountCents / 100)} €`,
+      y: 18,
+    },
+  ];
 
-  doc.setDrawColor(rule).setLineWidth(0.3);
-  doc.line(right - 95, summaryY + 40, right, summaryY + 40);
+  for (const [index, row] of summaryRows.entries()) {
+    const isTotal = index === 2;
+    doc.setFont("helvetica", isTotal ? "bold" : "normal");
+    doc.setTextColor(isTotal ? blue : muted).setFontSize(9);
+    doc.text(row.label, summaryLeft, summaryY + row.y);
+    const fontSize = isTotal ? 11 : 9;
+    doc.setTextColor(isTotal ? blue : ink).setFontSize(fontSize);
+    // Keep all values in the same column, including unusually large totals.
+    const valueWidth = doc.getTextWidth(row.value);
+    if (valueWidth > 50) doc.setFontSize((fontSize * 50) / valueWidth);
+    doc.text(row.value, right, summaryY + row.y, { align: "right" });
+  }
+
+  doc.setDrawColor(rule).setLineWidth(0.2);
+  doc.line(summaryLeft, summaryY + 13, right, summaryY + 13);
+  doc.setLineWidth(0.3);
+  doc.line(summaryLeft, summaryY + 37, right, summaryY + 37);
   doc.setTextColor(muted).setFont("helvetica", "normal").setFontSize(8);
-  doc.text("Assinatura", right - 95, summaryY + 45);
+  doc.text("Assinatura", summaryLeft, summaryY + 42);
 
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
@@ -219,7 +231,8 @@ export async function downloadMonthlyPdf(
   journeys: KmsJourney[],
   month: string,
   company: string,
+  details: ExportDetails = defaultExportDetails,
 ) {
-  const doc = createMonthlyPdf(journeys, month, company);
+  const doc = createMonthlyPdf(journeys, month, company, details);
   await doc.save(`mapa-quilometros-${month}.pdf`, { returnPromise: true });
 }

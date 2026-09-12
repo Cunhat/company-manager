@@ -20,7 +20,7 @@ function journey(overrides: Partial<KmsJourney> = {}): KmsJourney {
 }
 
 describe("monthly PDF export", () => {
-  it("produces a Portuguese PDF for the selected month with notes and exact totals", () => {
+  it("produces a European Portuguese PDF with default car and employee details, notes and exact totals", () => {
     const doc = createMonthlyPdf(
       [
         journey(),
@@ -33,6 +33,20 @@ describe("monthly PDF export", () => {
     const output = doc.output();
     assert.ok(output.startsWith("%PDF-"));
     assert.ok(output.includes("/Lang (pt)"));
+    assert.ok(output.includes("Mapa de quilómetros"));
+    assert.ok(output.includes("Setembro de 2026"));
+    for (const label of [
+      "EMPRESA",
+      "VIATURA",
+      "MATRÍCULA",
+      "NOME DO COLABORADOR",
+      "DATA DO MAPA",
+    ]) {
+      assert.ok(output.includes(label), label);
+    }
+    assert.ok(output.includes("Volvo V40"));
+    assert.ok(output.includes("04-VX-77"));
+    assert.ok(output.includes("Tiago Cunha"));
     assert.ok(output.includes("Empresa de exemplo"));
     assert.ok(output.includes("30/09/2026"));
     assert.ok(output.includes("Apresentação da proposta"));
@@ -72,6 +86,9 @@ describe("monthly PDF export", () => {
     assert.equal(output.match(/Assinatura/g)?.length, 1);
     assert.equal(output.match(/TOTAL A RECEBER/g)?.length, 1);
     assert.equal(output.match(/FINALIDADE/g)?.length, doc.getNumberOfPages());
+    for (const value of ["Volvo V40", "04-VX-77", "Tiago Cunha"]) {
+      assert.equal(output.split(value).length - 1, doc.getNumberOfPages());
+    }
     assert.ok(output.includes(`Página ${doc.getNumberOfPages()} de ${doc.getNumberOfPages()}`));
   });
 
@@ -88,6 +105,44 @@ describe("monthly PDF export", () => {
     const output = doc.output();
     assert.ok(output.includes("FIMDASNOTAS"));
     assert.ok(output.includes("Assinatura"));
+  });
+
+  it("uses edited details between company and report date", () => {
+    const output = createMonthlyPdf([journey()], "2026-09", "Example company", {
+      car: "  Volvo XC40  ",
+      licensePlate: "  AB-12-CD  ",
+      employee: "  Alex Smith  ",
+    }).output();
+    const values = [
+      "(Example company)",
+      "(Volvo XC40)",
+      "(AB-12-CD)",
+      "(Alex Smith)",
+      "(30/09/2026)",
+    ];
+    for (const [index, value] of values.entries()) {
+      assert.ok(output.includes(value), value);
+      if (index > 0) assert.ok(output.indexOf(values[index - 1]!) < output.indexOf(value));
+    }
+    assert.ok(!output.includes("Tiago Cunha"));
+  });
+
+  it("rejects empty and overlong car, plate and employee details", () => {
+    const details = { car: "Volvo V40", licensePlate: "04-VX-77", employee: "Tiago Cunha" };
+    for (const [field, maxLength] of [
+      ["car", 100],
+      ["licensePlate", 20],
+      ["employee", 100],
+    ] as const) {
+      for (const value of ["  ", "A".repeat(maxLength + 1)]) {
+        assert.throws(() =>
+          createMonthlyPdf([journey()], "2026-09", "Company", {
+            ...details,
+            [field]: value,
+          }),
+        );
+      }
+    }
   });
 
   it("rejects missing company, invalid month and months without journeys", () => {
