@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import dayjs from "@/features/kms/lib/dates";
 import { defaultExportDetails, type ExportDetails } from "@/features/kms/lib/export-details";
-import { exportMonthlyPdfSchema } from "@/features/kms/schemas/validators";
+import { exportPerDiemPdfSchema } from "../schemas/validators";
 import { allowanceCents, PDF_TYPE_LABELS, perDiemsForMonth } from "./allowances";
 import type { PerDiem } from "../schemas/types";
 
@@ -24,9 +24,9 @@ export function createPerDiemPdf(
   entries: PerDiem[],
   month: string,
   company: string,
-  details: ExportDetails = defaultExportDetails,
+  details: Pick<ExportDetails, "employee"> = { employee: defaultExportDetails.employee },
 ) {
-  const profile = exportMonthlyPdfSchema.parse({ company, ...details });
+  const profile = exportPerDiemPdfSchema.parse({ company, ...details });
   const days = perDiemsForMonth(entries, month);
   if (!days.length) throw new Error("There are no per diems to export for this month.");
   if (new Set(days.map((day) => day.date)).size !== days.length)
@@ -52,16 +52,9 @@ export function createPerDiemPdf(
   const companyHeight = Math.max(16, 9 + companyLines.length * 4.5);
   const employeeLines = doc.splitTextToSize(
     `Funcionário / gerente: ${profile.employee}`,
-    contentWidth / 2 - 10,
+    contentWidth - 8,
   ) as string[];
-  const vehicleLines = doc.splitTextToSize(
-    `Veículo: ${profile.car}    Matrícula: ${profile.licensePlate}`,
-    contentWidth / 2 - 10,
-  ) as string[];
-  const employeeHeight = Math.max(
-    12,
-    5 + Math.max(employeeLines.length, vehicleLines.length) * 4.5,
-  );
+  const employeeHeight = Math.max(12, 5 + employeeLines.length * 4.5);
   const tableY = 34 + companyHeight + employeeHeight + 4;
 
   function drawHeader() {
@@ -77,7 +70,6 @@ export function createPerDiemPdf(
     const y = 34 + companyHeight;
     doc.setFillColor("#E2EFD9").rect(margin, y, contentWidth, employeeHeight, "F");
     doc.text(employeeLines, margin + 4, y + 6, { lineHeightFactor: 1.28 });
-    doc.text(vehicleLines, margin + contentWidth / 2 + 4, y + 6, { lineHeightFactor: 1.28 });
   }
 
   let summaryY = tableY;
@@ -88,17 +80,18 @@ export function createPerDiemPdf(
     showHead: "everyPage",
     showFoot: "lastPage",
     rowPageBreak: "avoid",
-    head: [["DATA", "DESTINO", "TIPO", "FINALIDADE", "% DA DIÁRIA", "VALOR (€)"]],
+    head: [["DATA", "PERCURSO", "TIPO", "FINALIDADE", "DESCRIÇÃO", "% DA DIÁRIA", "VALOR (€)"]],
     body: days.map((day) => [
       dayjs.utc(day.date).format("DD/MM/YYYY"),
-      day.destination,
+      `${day.sourceOrigin} > ${day.destination}`,
       PDF_TYPE_LABELS[day.type],
       day.reason,
+      day.description,
       `${day.percentage}%`,
       `${money.format(allowanceCents(day) / 100)} €`,
     ]),
     // Reserve room for the total, rate note, and signature with the last row.
-    foot: [[{ content: "", colSpan: 6 }]],
+    foot: [[{ content: "", colSpan: 7 }]],
     footStyles: { minCellHeight: 44, fillColor: "#FFFFFF", lineWidth: 0 },
     styles: {
       font: "helvetica",
@@ -114,10 +107,11 @@ export function createPerDiemPdf(
     columnStyles: {
       0: { cellWidth: 25, textColor: muted },
       1: { cellWidth: 43, fontStyle: "bold" },
-      2: { cellWidth: 50 },
-      3: { cellWidth: contentWidth - 169 },
-      4: { cellWidth: 24, halign: "center" },
-      5: { cellWidth: 27, halign: "right", fontStyle: "bold", textColor: blue },
+      2: { cellWidth: 38 },
+      3: { cellWidth: contentWidth - 187 },
+      4: { cellWidth: 30 },
+      5: { cellWidth: 24, halign: "center" },
+      6: { cellWidth: 27, halign: "right", fontStyle: "bold", textColor: blue },
     },
     didParseCell: ({ section, row, cell }) => {
       if (section === "body")
@@ -169,7 +163,7 @@ export async function downloadPerDiemPdf(
   entries: PerDiem[],
   month: string,
   company: string,
-  details: ExportDetails = defaultExportDetails,
+  details: Pick<ExportDetails, "employee"> = { employee: defaultExportDetails.employee },
 ) {
   await createPerDiemPdf(entries, month, company, details).save(
     `mapa-ajudas-de-custo-${month}.pdf`,

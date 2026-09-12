@@ -26,6 +26,7 @@ export const perDiem = pgTable(
     date: date("date", { mode: "string" }).notNull(),
     destination: text("destination").notNull(),
     reason: text("reason").notNull(),
+    description: text("description").notNull().default(""),
     type: text("type", {
       enum: ["daily", "departure", "intermediate", "return"],
     }).notNull(),

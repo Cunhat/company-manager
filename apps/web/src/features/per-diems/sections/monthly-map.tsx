@@ -76,9 +76,10 @@ export function MonthlyPerDiemMap({
               <tr>
                 {[
                   "Date",
-                  "Destination",
+                  "Journey",
                   "Type",
                   "Business purpose",
+                  "Description",
                   "% of daily rate",
                   "Amount",
                   "Actions",
@@ -86,7 +87,7 @@ export function MonthlyPerDiemMap({
                   <th
                     scope="col"
                     key={label}
-                    className={`px-5 py-3 font-medium ${index >= 4 ? "text-right" : ""}`}
+                    className={`px-5 py-3 font-medium ${index >= 5 ? "text-right" : ""}`}
                   >
                     {label === "Actions" ? <span className="sr-only">Actions</span> : label}
                   </th>
@@ -100,7 +101,7 @@ export function MonthlyPerDiemMap({
                     <time dateTime={entry.date}>{formatTravelDate(entry.date)}</time>
                   </td>
                   <th scope="row" className="max-w-64 px-5 py-4 font-medium break-words">
-                    {entry.destination}
+                    {entry.sourceOrigin} → {entry.destination}
                     <span className="mt-1 block text-xs font-normal text-muted-foreground">
                       {entry.territory === "portugal" ? "Portugal" : "Abroad"}
                     </span>
@@ -108,6 +109,9 @@ export function MonthlyPerDiemMap({
                   <td className="px-5 py-4 text-muted-foreground">{TYPE_LABELS[entry.type]}</td>
                   <td className="max-w-xs px-5 py-4 break-words text-muted-foreground">
                     {entry.reason}
+                  </td>
+                  <td className="max-w-xs px-5 py-4 break-words text-muted-foreground">
+                    {entry.description || "—"}
                   </td>
                   <td className="px-5 py-4 text-right tabular-nums">
                     {entry.percentage}%
@@ -145,7 +149,7 @@ export function MonthlyPerDiemMap({
             </tbody>
             <tfoot className="border-t bg-muted/30">
               <tr>
-                <th scope="row" colSpan={5} className="px-5 py-4 font-medium">
+                <th scope="row" colSpan={6} className="px-5 py-4 font-medium">
                   Total per diems
                 </th>
                 <td className="whitespace-nowrap px-5 py-4 text-right font-semibold tabular-nums">

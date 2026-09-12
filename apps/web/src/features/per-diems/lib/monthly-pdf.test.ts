@@ -8,6 +8,7 @@ function entry(overrides: Partial<PerDiem> = {}): PerDiem {
     id: crypto.randomUUID(),
     userId: "alice",
     sourceJourneyId: null,
+    description: "",
     date: "2026-08-03",
     destination: "PMI Lisboa",
     reason: "Reunião com equipa técnica - 6 a 8 h no local",
@@ -66,24 +67,24 @@ export function exampleEntries(): PerDiem[] {
 }
 
 describe("per diem PDF", () => {
-  it("matches the supplied example and its €326.91 total with manager, vehicle and signature", () => {
+  it("exports the €326.91 total with manager and signature but no vehicle details", () => {
     const doc = createPerDiemPdf(exampleEntries(), "2026-08", "TIAGO MARQUES CUNHA Unipessoal Lda");
     const output = doc.output();
     for (const text of [
       "%PDF-",
       "MAPA DE AJUDAS DE CUSTO",
-      "DESTINO",
+      "PERCURSO",
       "FINALIDADE",
       "Diária",
       "31/08/2026",
       "Tiago Cunha",
-      "Volvo V40",
-      "04-VX-77",
       "326,91",
       "ASSINATURA",
       "TOTAL AJUDAS DE CUSTO A PROCESSAR",
     ])
       assert.ok(output.includes(text), text);
+    for (const text of ["Volvo V40", "04-VX-77", "Veículo", "Matrícula"])
+      assert.ok(!output.includes(text), text);
     assert.equal(doc.getNumberOfPages(), 1);
   });
   it("filters the month, sorts dates, and sums stored historical rates", () => {
@@ -102,11 +103,9 @@ describe("per diem PDF", () => {
   });
   it("uses edited export details and leap-year month end", () => {
     const output = createPerDiemPdf([entry({ date: "2028-02-29" })], "2028-02", " Outra Empresa ", {
-      car: "Carro B",
-      licensePlate: "AA-00-BB",
       employee: "Maria Silva",
     }).output();
-    for (const text of ["Outra Empresa", "Carro B", "AA-00-BB", "Maria Silva", "29/02/2028"])
+    for (const text of ["Outra Empresa", "Maria Silva", "29/02/2028"])
       assert.ok(output.includes(text));
     assert.ok(!output.includes("Tiago Cunha"));
   });
@@ -137,4 +136,35 @@ describe("per diem PDF", () => {
     assert.throws(() => createPerDiemPdf([entry()], "2026-09", "Empresa"));
     assert.throws(() => createPerDiemPdf([], "2026-08", "Empresa"));
   });
+});
+
+it("exports overnight descriptions and the return route", () => {
+  const entries = [
+    entry({
+      date: "2026-08-06",
+      destination: "Boost It Porto",
+      reason: "Reunião com cliente",
+      description: "Com prenoita",
+      type: "departure",
+      percentage: 100,
+    }),
+    entry({
+      date: "2026-08-07",
+      destination: "Boost It Porto",
+      description: "Com prenoita",
+      type: "intermediate",
+      percentage: 100,
+    }),
+    entry({
+      date: "2026-08-08",
+      sourceOrigin: "Boost It Porto",
+      destination: "Sede",
+      reason: "Regresso",
+      type: "return",
+    }),
+  ];
+  const doc = createPerDiemPdf(entries, "2026-08", "Example Lda");
+  const output = doc.output();
+  for (const text of ["Com prenoita", "Regresso", "163,46", "DESCRIÇÃO"])
+    assert.ok(output.includes(text), text);
 });

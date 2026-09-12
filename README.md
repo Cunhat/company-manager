@@ -87,7 +87,7 @@ separately. Historical rates can be entered manually. Amounts are rounded to cen
 per day, then summed, so the example report totals €326.91.
 
 **Download PDF** exports the selected month's saved entries in Portuguese, with
-company, employee/manager and vehicle details, month-end date, day type, purpose,
+company and employee/manager details, month-end date, day type, purpose,
 percentage, amount, total and signature line. The PDF library loads only on export.
 Feature code lives in `apps/web/src/features/per-diems`; database definitions live
 in `packages/db/src/schema/per_diem.ts`.
@@ -158,3 +158,8 @@ company-manager/
 - `bun run db:migrate`: Run database migrations
 - `bun run db:studio`: Open database studio UI
 - `bun run check`: Run Oxlint and Oxfmt
+
+
+Per diem overnight trips pair reversed mileage routes by date and prefill the return date, including across months. Overnight days start at 100% with description `Com prenoita`; the domestic return starts at 25% with purpose `Regresso` and the reversed route. These are editable starting percentages for review against travel times and separately paid expenses. Same-day trips create one daily allowance. Saved entries are not recalculated.
+
+After the initial per diem SQL, apply `packages/db/sql/20260912_per_diem_description.sql` to add the description column to existing installations. The Drizzle schema also includes the column for new installations.

@@ -33,6 +33,7 @@ export function journeysFromPath(
     },
     {
       ...common,
+      reason: "Regresso",
       origin: path.destination,
       destination: path.origin,
       date: dayjs.utc(dates.returnDate).toDate(),

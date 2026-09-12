@@ -19,7 +19,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import dayjs from "@/features/kms/lib/dates";
 import { formatAmount, formatTravelDate } from "@/features/kms/lib/maps";
-import type { KmsJourney } from "@/features/kms/schemas/types";
+import type { PerDiemJourney } from "../lib/allowances";
 import type { CreatePerDiem } from "../schemas/types";
 import { createPerDiemSchema } from "../schemas/validators";
 import {
@@ -38,7 +38,7 @@ export function AddPerDiemDialog({
   onAdd,
   onClose,
 }: {
-  journeys: KmsJourney[];
+  journeys: PerDiemJourney[];
   month: string;
   initialJourneyId: string;
   onAdd: (values: CreatePerDiem) => Promise<void>;
@@ -117,7 +117,7 @@ function CreateAllowanceForm({
   onClose,
   onPendingChange,
 }: {
-  source: KmsJourney;
+  source: PerDiemJourney;
   month: string;
   onAdd: (values: CreatePerDiem) => Promise<void>;
   onClose: () => void;
@@ -193,11 +193,16 @@ function CreateAllowanceForm({
                         id={`${id}-return`}
                         label="Return date"
                         type="date"
+                        readOnly={Boolean(source.returnJourney)}
                         value={field.state.value}
                         onChange={field.handleChange}
                         onBlur={field.handleBlur}
                         errors={field.state.meta.errors}
-                        help="Use the same date for a day trip."
+                        help={
+                          source.returnJourney
+                            ? "Date of the matching return journey."
+                            : "No matching return found. Confirm the return date."
+                        }
                       />
                     )}
                   </form.Field>
@@ -211,7 +216,7 @@ function CreateAllowanceForm({
                       onChange={field.handleChange}
                       onBlur={field.handleBlur}
                       errors={field.state.meta.errors}
-                      help="For a return journey, enter the place where you worked."
+                      help="The return day will show the reverse route."
                     />
                   )}
                 </form.Field>
@@ -228,6 +233,21 @@ function CreateAllowanceForm({
                     />
                   )}
                 </form.Field>
+                {multiDay ? (
+                  <form.Field name="description">
+                    {(field) => (
+                      <PerDiemField
+                        id={`${id}-description`}
+                        label="Description"
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        onBlur={field.handleBlur}
+                        errors={field.state.meta.errors}
+                        help="Applies to each overnight day before the return."
+                      />
+                    )}
+                  </form.Field>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <form.Field name="territory">
                     {(field) => (
@@ -336,7 +356,8 @@ function CreateAllowanceForm({
                         <thead className="sr-only">
                           <tr>
                             <th>Date</th>
-                            <th>Type</th>
+                            <th>Journey and purpose</th>
+                            <th>Description</th>
                             <th>Percentage</th>
                             <th>Amount</th>
                           </tr>
@@ -347,7 +368,16 @@ function CreateAllowanceForm({
                               <td className="whitespace-nowrap px-4 py-2">
                                 {formatTravelDate(day.date)}
                               </td>
-                              <td className="px-2 py-2">{TYPE_LABELS[day.type]}</td>
+                              <td className="px-2 py-2">
+                                <span className="block font-medium">
+                                  {day.sourceOrigin} → {day.destination}
+                                </span>
+                                <span className="block">{day.reason}</span>
+                                <span className="text-muted-foreground">
+                                  {TYPE_LABELS[day.type]}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2">{day.description || "—"}</td>
                               <td className="px-2 py-2 text-right">{day.percentage}%</td>
                               <td className="px-4 py-2 text-right tabular-nums">
                                 {formatAmount(allowanceCents(day))}

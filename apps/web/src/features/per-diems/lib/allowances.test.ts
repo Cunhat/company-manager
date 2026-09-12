@@ -2,6 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { KmsJourney } from "@/features/kms/schemas/types";
 import {
+  pairMileageJourneys,
+  tripHasClaimedDays,
   allowanceCents,
   allowanceDays,
   perDiemsForMonth,
@@ -39,7 +41,7 @@ describe("per diem calculations and validation", () => {
     assert.equal(days.length, 1);
     assert.equal(days[0].type, "daily");
   });
-  it("includes intermediate days without adding mileage or changing the business destination", () => {
+  it("includes intermediate days with overnight descriptions and a reversed return route", () => {
     const days = allowanceDays({ ...input(), returnDate: "2026-08-08" });
     assert.deepEqual(
       days.map((day) => [day.date, day.type, day.percentage]),
@@ -49,7 +51,18 @@ describe("per diem calculations and validation", () => {
         ["2026-08-08", "return", 25],
       ],
     );
-    assert.ok(days.every((day) => day.destination === "Coimbra"));
+    assert.deepEqual(
+      days.map((day) => [day.sourceOrigin, day.destination, day.reason, day.description]),
+      [
+        ["Sede", "Coimbra", source.reason, "Com prenoita"],
+        ["Sede", "Coimbra", source.reason, "Com prenoita"],
+        ["Coimbra", "Sede", "Regresso", ""],
+      ],
+    );
+    assert.equal(
+      days.reduce((sum, day) => sum + allowanceCents(day), 0),
+      16346,
+    );
   });
   it("keeps user-adjusted foreign percentages and rates", () => {
     const days = allowanceDays({
@@ -154,6 +167,8 @@ describe("per diem calculations and validation", () => {
   });
   it("validates edits independently of the source and supports intermediate-day corrections", () => {
     const value = {
+      origin: "Sede",
+      description: "Com prenoita",
       date: "2026-08-07",
       destination: "Coimbra",
       reason: "Trabalho no cliente",
@@ -166,4 +181,92 @@ describe("per diem calculations and validation", () => {
     assert.equal(editPerDiemSchema.safeParse({ ...value, type: "invalid" }).success, false);
     assert.equal(editPerDiemSchema.safeParse({ ...value, date: "2026-02-30" }).success, false);
   });
+});
+
+describe("mileage trip pairing", () => {
+  const leg = (date: string, returning = false, changes: Partial<KmsJourney> = {}): KmsJourney => ({
+    ...source,
+    id: crypto.randomUUID(),
+    date: new Date(`${date}T00:00:00Z`),
+    origin: returning ? source.destination : source.origin,
+    destination: returning ? source.origin : source.destination,
+    reason: returning ? "Regresso" : source.reason,
+    ...changes,
+  });
+  it("pairs unordered legs and automatically fills every overnight day", () => {
+    const returning = leg("2026-08-08", true);
+    const [trip] = pairMileageJourneys([returning, source]);
+    assert.equal(trip.id, source.id);
+    assert.equal(trip.returnJourney?.id, returning.id);
+    const values = valuesFromJourney(trip, "2026-08");
+    assert.equal(values.returnDate, "2026-08-08");
+    const rows = perDiemsFromJourney(values, source, "alice", returning);
+    assert.deepEqual(rows.map(allowanceCents), [7265, 7265, 1816]);
+    assert.deepEqual(
+      rows.map((row) => row.description),
+      ["Com prenoita", "Com prenoita", ""],
+    );
+    assert.equal(rows[2].sourceJourneyId, returning.id);
+    assert.equal(rows[2].destination, "Sede");
+  });
+  it("groups a same-day return into one daily allowance", () => {
+    const trips = pairMileageJourneys([leg("2026-08-06", true), source]);
+    assert.equal(trips.length, 1);
+    const days = allowanceDays(valuesFromJourney(trips[0], "2026-08"));
+    assert.equal(days.length, 1);
+    assert.equal(days[0].description, "");
+    assert.equal(days[0].type, "daily");
+  });
+  it("pairs repeated routes separately and supports legacy return purposes", () => {
+    const trips = pairMileageJourneys([
+      source,
+      leg("2026-08-08", true, { reason: source.reason }),
+      leg("2026-08-10"),
+      leg("2026-08-12", true),
+    ]);
+    assert.equal(trips.length, 2);
+    assert.deepEqual(
+      trips.map((trip) => valuesFromJourney(trip, "2026-08").returnDate),
+      ["2026-08-08", "2026-08-12"],
+    );
+  });
+  it("does not borrow another owner's return or skip the next outward trip", () => {
+    const trips = pairMileageJourneys([
+      source,
+      leg("2026-08-07"),
+      leg("2026-08-08", true),
+      leg("2026-08-06", true, { userId: "bob" }),
+    ]);
+    assert.equal(trips.length, 2);
+    assert.equal(trips[0].returnJourney, undefined);
+    assert.ok(trips[1].returnJourney);
+    assert.deepEqual(pairMileageJourneys([leg("2026-08-08", true)]), []);
+  });
+  it("pairs across month boundaries and rejects stale or forged return references", () => {
+    const outward = leg("2026-08-31");
+    const returning = leg("2026-09-02", true);
+    const [trip] = pairMileageJourneys([outward, returning]);
+    const values = valuesFromJourney(trip, "2026-08");
+    assert.equal(perDiemsForMonth(allowanceDays(values), "2026-09").length, 2);
+    assert.throws(() => perDiemsFromJourney(values, outward, "alice"), /return journey/);
+    assert.throws(
+      () => perDiemsFromJourney(values, outward, "alice", { ...returning, userId: "bob" }),
+      /return journey/,
+    );
+    assert.throws(
+      () =>
+        perDiemsFromJourney({ ...values, returnDate: "2026-09-03" }, outward, "alice", returning),
+      /return journey/,
+    );
+    assert.throws(
+      () => perDiemsFromJourney(values, outward, "alice", { ...returning, origin: "Other" }),
+      /return journey/,
+    );
+  });
+});
+
+it("blocks a trip when an intermediate day is already claimed", () => {
+  const trip = { ...source, returnJourney: { ...source, date: new Date("2026-08-08T00:00:00Z") } };
+  assert.equal(tripHasClaimedDays(trip, new Set(["2026-08-07"])), true);
+  assert.equal(tripHasClaimedDays(trip, new Set(["2026-08-09"])), false);
 });

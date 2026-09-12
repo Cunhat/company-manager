@@ -1,6 +1,11 @@
 import z from "zod";
 import dayjs, { isTravelDate } from "@/features/kms/lib/dates";
-import { monthSchema } from "@/features/kms/schemas/validators";
+import { exportMonthlyPdfSchema, monthSchema } from "@/features/kms/schemas/validators";
+
+export const exportPerDiemPdfSchema = exportMonthlyPdfSchema.pick({
+  company: true,
+  employee: true,
+});
 
 export const territorySchema = z.enum(["portugal", "abroad"]);
 export const perDiemTypeSchema = z.enum(["daily", "departure", "intermediate", "return"]);
@@ -17,6 +22,8 @@ export const dailyRateSchema = z
   );
 
 const allowanceFields = {
+  origin: z.string().trim().min(1, "Enter an origin").max(250),
+  description: z.string().trim().max(500),
   destination: z.string().trim().min(1, "Enter a destination").max(250),
   reason: z.string().trim().min(1, "Enter a business purpose").max(500),
   territory: territorySchema,
@@ -28,6 +35,7 @@ export const createPerDiemSchema = z
     ...allowanceFields,
     month: monthSchema,
     sourceJourneyId: z.uuid("Choose a mileage journey"),
+    returnJourneyId: z.uuid().optional(),
     departureDate: z.string().refine(isTravelDate, "Choose a valid departure date"),
     returnDate: z.string().refine(isTravelDate, "Choose a valid return date"),
     dailyPercentage: percentageSchema,

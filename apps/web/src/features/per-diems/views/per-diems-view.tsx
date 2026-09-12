@@ -17,13 +17,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import dayjs from "@/features/kms/lib/dates";
 import { formatAmount, formatTravelDate } from "@/features/kms/lib/maps";
-import { getKmsJourneysQuery } from "@/features/kms/server/functions";
+
 import { monthSchema } from "@/features/kms/schemas/validators";
-import { allowanceCents, perDiemsForMonth } from "../lib/allowances";
+import { allowanceCents, perDiemsForMonth, tripHasClaimedDays } from "../lib/allowances";
 import {
   createPerDiemsMutation,
   deletePerDiemMutation,
   getPerDiemsQuery,
+  getPerDiemJourneysQuery,
   updatePerDiemMutation,
 } from "../server/functions";
 import type { CreatePerDiem, EditPerDiem, PerDiem } from "../schemas/types";
@@ -49,7 +50,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const client = useQueryClient();
   const allowances = useQuery(getPerDiemsQuery(userId, month));
-  const journeys = useQuery(getKmsJourneysQuery(userId, month));
+  const journeys = useQuery(getPerDiemJourneysQuery(userId, month));
   const create = useMutation(createPerDiemsMutation);
   const update = useMutation(updatePerDiemMutation);
   const remove = useMutation(deletePerDiemMutation);
@@ -59,7 +60,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
   const busy = create.isPending || update.isPending || remove.isPending;
   const claimedDates = new Set(entries.map((entry) => entry.date));
   const availableJourneys = (journeys.data ?? []).filter(
-    (item) => !claimedDates.has(dayjs.utc(item.date).format("YYYY-MM-DD")),
+    (item) => !tripHasClaimedDays(item, claimedDates),
   );
   const canAdd = sourceReady && availableJourneys.length > 0 && !busy;
 
@@ -124,7 +125,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
         <TabsList aria-label="Per diem sections">
           <TabsTrigger value="maps">Monthly maps</TabsTrigger>
           <TabsTrigger value="journeys">
-            Mileage journeys{" "}
+            Mileage trips{" "}
             <span className="ml-1.5 text-xs tabular-nums">{journeys.data?.length ?? 0}</span>
           </TabsTrigger>
         </TabsList>
@@ -177,7 +178,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
             {[
               { label: "Allowance days", value: ready ? entries.length : "—" },
               {
-                label: "Mileage journeys",
+                label: "Mileage trips",
                 value: journeys.isSuccess ? journeys.data.length : "—",
               },
               {

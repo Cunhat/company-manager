@@ -98,11 +98,35 @@ export function EditPerDiemSheet({
                       />
                     )}
                   </form.Field>
+                  <form.Field name="origin">
+                    {(field) => (
+                      <PerDiemField
+                        id={`${id}-origin`}
+                        label="Origin"
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        onBlur={field.handleBlur}
+                        errors={field.state.meta.errors}
+                      />
+                    )}
+                  </form.Field>
                   <form.Field name="destination">
                     {(field) => (
                       <PerDiemField
                         id={`${id}-destination`}
                         label="Destination"
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        onBlur={field.handleBlur}
+                        errors={field.state.meta.errors}
+                      />
+                    )}
+                  </form.Field>
+                  <form.Field name="description">
+                    {(field) => (
+                      <PerDiemField
+                        id={`${id}-description`}
+                        label="Description"
                         value={field.state.value}
                         onChange={field.handleChange}
                         onBlur={field.handleBlur}

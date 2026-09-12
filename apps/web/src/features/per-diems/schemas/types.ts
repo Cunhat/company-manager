@@ -7,5 +7,13 @@ export type CreatePerDiem = z.infer<typeof createPerDiemSchema>;
 export type EditPerDiem = z.infer<typeof editPerDiemSchema>;
 export type AllowanceDay = Pick<
   PerDiem,
-  "date" | "type" | "destination" | "reason" | "territory" | "dailyRateCents" | "percentage"
+  | "sourceOrigin"
+  | "description"
+  | "date"
+  | "type"
+  | "destination"
+  | "reason"
+  | "territory"
+  | "dailyRateCents"
+  | "percentage"
 >;

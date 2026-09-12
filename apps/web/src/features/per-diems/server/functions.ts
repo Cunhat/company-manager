@@ -8,7 +8,7 @@ import type z from "zod";
 import dayjs from "@/features/kms/lib/dates";
 import { monthSchema } from "@/features/kms/schemas/validators";
 import { createPerDiemSchema, perDiemIdSchema, updatePerDiemSchema } from "../schemas/validators";
-import { perDiemsFromJourney } from "../lib/allowances";
+import { pairMileageJourneys, perDiemsFromJourney } from "../lib/allowances";
 
 export const getPerDiems = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -55,7 +55,13 @@ export const createPerDiems = createServerFn({ method: "POST" })
       where: (row, { and, eq }) => and(eq(row.id, data.sourceJourneyId), eq(row.userId, userId)),
     });
     if (!source) throw new Error("Mileage journey not found or no longer available");
-    const rows = perDiemsFromJourney(data, source, userId);
+    const returning = data.returnJourneyId
+      ? await db.query.journey.findFirst({
+          where: (row, { and, eq }) =>
+            and(eq(row.id, data.returnJourneyId!), eq(row.userId, userId)),
+        })
+      : undefined;
+    const rows = perDiemsFromJourney(data, source, userId, returning);
     try {
       // One atomic insert: conflicting dates reject the entire trip, including across months.
       return await db.insert(perDiem).values(rows).returning();
@@ -82,6 +88,8 @@ export const updatePerDiem = createServerFn({ method: "POST" })
           date: data.date,
           destination: data.destination,
           reason: data.reason,
+          sourceOrigin: data.origin,
+          description: data.description,
           type: data.type,
           territory: data.territory,
           dailyRateCents: Math.round(Number(data.dailyRate) * 100),
@@ -118,3 +126,29 @@ export const deletePerDiem = createServerFn({ method: "POST" })
 export const deletePerDiemMutation = mutationOptions({
   mutationFn: (data: z.infer<typeof perDiemIdSchema>) => deletePerDiem({ data }),
 });
+
+export const getPerDiemJourneys = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(monthSchema)
+  .handler(async ({ context, data: month }) => {
+    const userId = context.session?.user.id;
+    if (!userId) throw new Error("You must be signed in to view mileage trips");
+    // Include adjacent months so a return leg is never offered as another trip.
+    const journeys = await createDb().query.journey.findMany({
+      where: (row, { and, eq, gte, lt }) =>
+        and(
+          eq(row.userId, userId),
+          gte(row.date, dayjs.utc(month).subtract(89, "day").toDate()),
+          lt(row.date, dayjs.utc(month).add(1, "month").add(89, "day").toDate()),
+        ),
+    });
+    return pairMileageJourneys(journeys).filter(
+      (trip) => dayjs.utc(trip.date).format("YYYY-MM") === month,
+    );
+  });
+
+export const getPerDiemJourneysQuery = (userId: string, month: string) =>
+  queryOptions({
+    queryKey: ["kms-journeys", userId, "per-diem-trips", month],
+    queryFn: () => getPerDiemJourneys({ data: month }),
+  });

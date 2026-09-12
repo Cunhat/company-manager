@@ -72,6 +72,7 @@ const entry: PerDiem = {
   id: "ba8ba817-62d1-4600-b14f-ef461aef8cb1",
   userId: "alice",
   sourceJourneyId: source.id,
+  description: "",
   date: "2026-08-06",
   destination: "Coimbra",
   reason: source.reason,
@@ -222,4 +223,37 @@ describe("per diem forms", () => {
     await waitFor(() => assert.equal(submitted?.percentage, "75"));
     assert.equal(submitted?.dailyRate, "60.00");
   });
+});
+
+it("prefills the paired return and submits three days with the overnight description", async () => {
+  let submitted: CreatePerDiem | undefined;
+  const returning = {
+    ...source,
+    id: crypto.randomUUID(),
+    origin: source.destination,
+    destination: source.origin,
+    reason: "Regresso",
+    date: new Date("2026-08-08T00:00:00Z"),
+  };
+  render(
+    <AddPerDiemDialog
+      journeys={[{ ...source, returnJourney: returning }]}
+      initialJourneyId={source.id}
+      month="2026-08"
+      onAdd={async (values) => {
+        submitted = values;
+      }}
+      onClose={() => {}}
+    />,
+  );
+  assert.equal((screen.getByLabelText("Description") as HTMLInputElement).value, "Com prenoita");
+  assert.ok(screen.getByText("€163.46"));
+  assert.ok(screen.getByText("Coimbra → Sede"));
+  assert.ok(screen.getByText("Regresso"));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Save per diems" }));
+  });
+  await waitFor(() => assert.equal(submitted?.returnDate, "2026-08-08"));
+  assert.equal(submitted?.returnJourneyId, returning.id);
+  assert.equal(submitted?.description, "Com prenoita");
 });

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import dayjs from "@/features/kms/lib/dates";
 import { defaultExportDetails } from "@/features/kms/lib/export-details";
-import { exportMonthlyPdfSchema } from "@/features/kms/schemas/validators";
+import { exportPerDiemPdfSchema } from "../schemas/validators";
 import type { PerDiem } from "../schemas/types";
 
 const fields = [
@@ -23,13 +23,6 @@ const fields = [
     label: "Company",
     maxLength: 250,
     autoComplete: "organization",
-  },
-  { name: "car", label: "Car", maxLength: 100, autoComplete: "off" },
-  {
-    name: "licensePlate",
-    label: "License plate",
-    maxLength: 20,
-    autoComplete: "off",
   },
   {
     name: "employee",
@@ -54,11 +47,11 @@ export function ExportPerDiemDialog({
   const form = useForm({
     defaultValues: {
       company: "TIAGO MARQUES CUNHA Unipessoal Lda",
-      ...defaultExportDetails,
+      employee: defaultExportDetails.employee,
     },
     validators: {
-      onChange: exportMonthlyPdfSchema,
-      onSubmit: exportMonthlyPdfSchema,
+      onChange: exportPerDiemPdfSchema,
+      onSubmit: exportPerDiemPdfSchema,
     },
     onSubmit: async ({ value }) => {
       setError(null);

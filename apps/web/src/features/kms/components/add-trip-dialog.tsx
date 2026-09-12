@@ -18,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatAmount, nightsBetween, RATE_CENTS_PER_KM, returnAfterNights } from "../lib/maps";
+import {
+  formatAmount,
+  nightsBetween,
+  RATE_CENTS_PER_KM,
+  returnAfterNights,
+} from "../lib/maps";
 import type { KmsPath, CreateKmsTrip } from "../schemas/types";
 import { tripDatesSchema } from "../schemas/validators";
 import { Spinner } from "@/components/ui/spinner";
@@ -109,7 +114,9 @@ export function AddTripDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Could not save the trip. Please try again.",
+        cause instanceof Error
+          ? cause.message
+          : "Could not save the trip. Please try again.",
       );
     } finally {
       setPending(false);
@@ -125,8 +132,8 @@ export function AddTripDialog({
         <DialogHeader>
           <DialogTitle>Add a trip</DialogTitle>
           <DialogDescription>
-            Select a saved path and when you travelled. Your return journey is included
-            automatically.
+            Select a saved path and when you travelled. Your return journey is
+            included automatically.
           </DialogDescription>
         </DialogHeader>
         <form className="space-y-5" onSubmit={handleSubmit}>
@@ -143,13 +150,17 @@ export function AddTripDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>{selectablePaths.map(renderPathItem)}</SelectGroup>
+                  <SelectGroup>
+                    {selectablePaths.map(renderPathItem)}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor={`${id}-departure`}>Departure date</FieldLabel>
+                <FieldLabel htmlFor={`${id}-departure`}>
+                  Departure date
+                </FieldLabel>
                 <Input
                   id={`${id}-departure`}
                   type="date"
@@ -183,21 +194,28 @@ export function AddTripDialog({
                 onChange={handleNightsChange}
               />
               <p className="text-xs text-muted-foreground">
-                0 means you returned on the same day. Staying longer does not add kilometres.
+                0 means you returned on the same day. Staying longer does not
+                add kilometres.
               </p>
             </Field>
             {path ? (
-              <div className="rounded-xl border bg-muted/30 p-4 text-sm" aria-live="polite">
+              <div
+                className="rounded-xl border bg-muted/30 p-4 text-sm"
+                aria-live="polite"
+              >
                 <p className="font-medium break-words">
                   {path.origin} → {path.destination} → {path.origin}
                 </p>
                 <div className="mt-2 flex justify-between gap-3 tabular-nums">
-                  <span className="text-muted-foreground">{path.distance} km × 2 journeys</span>
+                  <span className="text-muted-foreground">
+                    {path.distance} km × 2 journeys
+                  </span>
                   <span className="font-semibold">
                     {formatAmount(path.distance * 2 * RATE_CENTS_PER_KM)}
                   </span>
                 </div>
-                {datesValid && !dayjs(departureDate).isSame(dayjs(returnDate), "month") ? (
+                {datesValid &&
+                !dayjs(departureDate).isSame(dayjs(returnDate), "month") ? (
                   <p className="mt-3 text-xs text-muted-foreground">
                     Each journey will appear in its own travel month.
                   </p>
@@ -211,7 +229,12 @@ export function AddTripDialog({
             ) : null}
           </fieldset>
           <div className="flex justify-end gap-2 border-t pt-5">
-            <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={onClose}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={!path || pending}>

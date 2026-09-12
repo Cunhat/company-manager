@@ -29,7 +29,7 @@ function savedTrip(departureDate = "2026-09-07", returnDate = departureDate): Km
 }
 
 describe("database journey maps", () => {
-  it("snapshots both directions, purpose, distance and notes from the saved path", () => {
+  it("keeps the outward purpose and labels the return journey Regresso", () => {
     const journeys = savedTrip();
     assert.deepEqual(
       journeys.map(({ origin, destination }) => [origin, destination]),
@@ -41,15 +41,17 @@ describe("database journey maps", () => {
     for (const journey of journeys) {
       assert.equal(journey.userId, "alice");
       assert.equal(journey.description, path.description);
-      assert.equal(journey.reason, path.reason);
       assert.equal(journey.distance, 137);
     }
+    assert.equal(journeys[0].reason, path.reason);
+    assert.equal(journeys[1].reason, "Regresso");
     const result = generateMonthlyMap(journeys, "2026-09");
     assert.equal(result.entries.length, 2);
     assert.equal(result.totalKilometres, 274);
     assert.equal(result.totalAmountCents, 10960);
     assert.equal(result.ratePerKm, 0.4);
     assert.equal(result.entries[0].description, path.description);
+    assert.equal(result.entries[1].reason, "Regresso");
   });
 
   it("keeps repeated paths as distinct journeys and sorts travel dates", () => {
