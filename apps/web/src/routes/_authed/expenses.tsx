@@ -5,6 +5,18 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/_authed/expenses")({
   component: ExpensesView,
   loader: async ({ context }) => {
-    await context.queryClient.query({ ...getExpensesQuery, staleTime: "static" });
+    await context.queryClient.query({
+      ...getExpensesQuery,
+      staleTime: "static",
+    });
   },
+  head: () => ({
+    title: "Company Manager - Expenses",
+    meta: [
+      {
+        name: "description",
+        content: "Manage your company's expenses",
+      },
+    ],
+  }),
 });
