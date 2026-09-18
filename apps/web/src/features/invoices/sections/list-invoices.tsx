@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { IVA_RATE } from "@/lib/consts";
 import { IconArrowDown, IconFileInvoice } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { InvoiceStatus } from "../schemas/validators";
@@ -124,7 +125,7 @@ function InvoicesTable({
 
   return (
     <div className="overflow-x-auto" role="region" aria-label="Invoice list" tabIndex={0}>
-      <table className="w-full min-w-[560px] text-left text-sm">
+      <table className="w-full min-w-[800px] text-left text-sm">
         <caption className="sr-only">All invoices, ordered by date, newest first</caption>
         <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
           <tr>
@@ -141,14 +142,21 @@ function InvoicesTable({
             <th scope="col" className="px-5 py-3 text-right font-medium">
               Amount
             </th>
+            <th scope="col" className="px-5 py-3 text-right font-medium">
+              IVA
+            </th>
             <th scope="col" className="px-5 py-3 font-medium">
               Status
+            </th>
+            <th scope="col" className="whitespace-nowrap px-5 py-3 font-medium">
+              IVA status
             </th>
           </tr>
         </thead>
         <tbody className="divide-y">
           {invoices.map((invoice) => {
             const status = statuses[invoice.status];
+            const ivaStatus = statuses[invoice.ivaStatus];
             const date = new Date(invoice.createdAt);
 
             return (
@@ -177,12 +185,23 @@ function InvoicesTable({
                 <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
                   {amountFormatter.format(invoice.value)}
                 </td>
+                <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
+                  {amountFormatter.format(invoice.value * IVA_RATE)}
+                </td>
                 <td className="px-5 py-5">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${status.className}`}
                   >
                     <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
                     {status.label}
+                  </span>
+                </td>
+                <td className="px-5 py-5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${ivaStatus.className}`}
+                  >
+                    <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                    {ivaStatus.label}
                   </span>
                 </td>
               </tr>

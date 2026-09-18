@@ -42,9 +42,7 @@ export function CreateInvoiceDialog() {
       <AlertDialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto p-0 data-[size=default]:sm:max-w-lg">
         <AlertDialogHeader className="p-6 pb-0">
           <AlertDialogTitle>New invoice</AlertDialogTitle>
-          <AlertDialogDescription>
-            Fill in the invoice details.
-          </AlertDialogDescription>
+          <AlertDialogDescription>Fill in the invoice details.</AlertDialogDescription>
         </AlertDialogHeader>
         {open ? (
           <InvoiceForm
@@ -55,6 +53,7 @@ export function CreateInvoiceDialog() {
               value: "",
               date: format(new Date(), "yyyy-MM-dd"),
               status: "pending",
+              ivaStatus: "pending",
             }}
             onSubmit={handleCreate}
             onCancel={() => setOpen(false)}

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { IVA_RATE } from "@/lib/consts";
 import { IconArrowDown, IconReceiptEuro } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getExpensesQuery } from "../server/functions";
@@ -108,7 +109,7 @@ function ExpensesTable({
 
   return (
     <div className="overflow-x-auto" role="region" aria-label="Expense list" tabIndex={0}>
-      <table className="w-full min-w-[560px] text-left text-sm">
+      <table className="w-full min-w-[680px] text-left text-sm">
         <caption className="sr-only">All expenses, ordered by date, newest first</caption>
         <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
           <tr>
@@ -125,8 +126,11 @@ function ExpensesTable({
             <th scope="col" className="px-5 py-3 text-right font-medium">
               Amount
             </th>
-            <th scope="col" className="px-5 py-3 font-medium">
+            <th scope="col" className="px-5 py-3 text-right font-medium">
               IVA
+            </th>
+            <th scope="col" className="px-5 py-3 font-medium">
+              IVA status
             </th>
           </tr>
         </thead>
@@ -160,6 +164,9 @@ function ExpensesTable({
                 </td>
                 <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
                   {amountFormatter.format(Number(expense.value))}
+                </td>
+                <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
+                  {amountFormatter.format(Number(expense.value) * IVA_RATE)}
                 </td>
                 <td className="px-5 py-5">
                   <span

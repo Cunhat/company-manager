@@ -8,7 +8,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   createInvoiceSchema,
   invoiceStatuses,
+  ivaStatuses,
   type InvoiceStatus,
+  type IvaStatus,
 } from "../schemas/validators";
 import { InvoiceFormField, invoiceFields } from "./invoice-form-field";
 
@@ -48,9 +50,7 @@ export function InvoiceForm({
         await onSubmit(value);
       } catch (cause) {
         setError(
-          cause instanceof Error
-            ? cause.message
-            : "Could not save invoice. Please try again.",
+          cause instanceof Error ? cause.message : "Could not save invoice. Please try again.",
         );
       } finally {
         submitting.current = false;
@@ -105,11 +105,34 @@ export function InvoiceForm({
                     aria-labelledby={`${id}-status`}
                   >
                     {invoiceStatuses.map((status) => (
-                      <ToggleGroupItem
-                        key={status}
-                        value={status}
-                        className="flex-1 capitalize"
-                      >
+                      <ToggleGroupItem key={status} value={status} className="flex-1 capitalize">
+                        {status}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                  <FieldError errors={field.state.meta.errors} />
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="ivaStatus">
+              {(field) => (
+                <Field>
+                  <FieldLabel id={`${id}-iva-status`}>IVA status</FieldLabel>
+                  <ToggleGroup
+                    value={[field.state.value]}
+                    onValueChange={(values) => {
+                      const next = values[0];
+                      if (ivaStatuses.includes(next as IvaStatus))
+                        field.handleChange(next as IvaStatus);
+                    }}
+                    disabled={disabled || isSubmitting}
+                    variant="outline"
+                    spacing={2}
+                    className="w-full"
+                    aria-labelledby={`${id}-iva-status`}
+                  >
+                    {ivaStatuses.map((status) => (
+                      <ToggleGroupItem key={status} value={status} className="flex-1 capitalize">
                         {status}
                       </ToggleGroupItem>
                     ))}
@@ -119,10 +142,7 @@ export function InvoiceForm({
               )}
             </form.Field>
             {error ? (
-              <p
-                role="alert"
-                className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive"
-              >
+              <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </p>
             ) : null}
@@ -139,9 +159,9 @@ export function InvoiceForm({
           })}
         >
           {({ values, canSubmit, isSubmitting }) => {
-            const changed = (
-              Object.keys(defaultValues) as (keyof InvoiceFormValues)[]
-            ).some((key) => values[key] !== defaultValues[key]);
+            const changed = (Object.keys(defaultValues) as (keyof InvoiceFormValues)[]).some(
+              (key) => values[key] !== defaultValues[key],
+            );
             return (
               <div className="ml-auto flex items-center gap-2">
                 <Button
@@ -154,12 +174,7 @@ export function InvoiceForm({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={
-                    disabled ||
-                    isSubmitting ||
-                    !canSubmit ||
-                    (mode === "edit" && !changed)
-                  }
+                  disabled={disabled || isSubmitting || !canSubmit || (mode === "edit" && !changed)}
                 >
                   {isSubmitting ? <Spinner /> : null}
                   {mode === "create"
