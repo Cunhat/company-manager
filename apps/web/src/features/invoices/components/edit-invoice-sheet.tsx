@@ -68,6 +68,7 @@ export function EditInvoiceSheet({
             value: String(invoice.value),
             date: new Date(invoice.createdAt).toISOString().slice(0, 10),
             status: invoice.status,
+            ivaStatus: invoice.ivaStatus,
           }}
           onSubmit={handleUpdate}
           onCancel={onClose}

@@ -46,6 +46,7 @@ export const createInvoice = createServerFn({ method: "POST" })
       value: Number(data.value),
       createdAt: new Date(`${data.date}T00:00:00.000Z`),
       status: data.status,
+      ivaStatus: data.ivaStatus,
     });
   });
 
@@ -69,6 +70,7 @@ export const updateInvoice = createServerFn({ method: "POST" })
         value: Number(data.value),
         createdAt: new Date(`${data.date}T00:00:00.000Z`),
         status: data.status,
+        ivaStatus: data.ivaStatus,
         updatedAt: new Date(),
       })
       .where(and(eq(invoice.id, data.id), eq(invoice.userId, userId)))

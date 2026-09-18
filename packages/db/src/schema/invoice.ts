@@ -15,6 +15,8 @@ export const invoiceStatus = pgEnum("invoice_status", [
   "cancelled",
 ]);
 
+export const ivaStatus = pgEnum("iva_status", ["pending", "paid"]);
+
 export const invoice = pgTable("invoice", {
   id: uuid("id")
     .default(sql`uuidv7()`)
@@ -25,6 +27,7 @@ export const invoice = pgTable("invoice", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   status: invoiceStatus("status").notNull().default("pending"),
+  ivaStatus: ivaStatus("iva_status").notNull().default("pending"),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
