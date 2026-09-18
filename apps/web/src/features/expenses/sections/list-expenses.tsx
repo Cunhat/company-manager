@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { IVA_RATE } from "@/lib/consts";
+import { getExpenseIvaValue } from "@/lib/expense";
 import { IconArrowDown, IconReceiptEuro } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getExpensesQuery } from "../server/functions";
@@ -166,7 +166,7 @@ function ExpensesTable({
                   {amountFormatter.format(Number(expense.value))}
                 </td>
                 <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
-                  {amountFormatter.format(Number(expense.value) * IVA_RATE)}
+                  {amountFormatter.format(getExpenseIvaValue(expense))}
                 </td>
                 <td className="px-5 py-5">
                   <span
