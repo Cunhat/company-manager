@@ -136,6 +136,7 @@ const data = {
       url: "/invoices",
       icon: <IconFileInvoiceFilled />,
     },
+    { name: "IVA", url: "/iva", icon: <IconCalendarDollar /> },
     {
       name: "Expenses",
       url: "/expenses",

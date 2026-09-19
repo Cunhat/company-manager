@@ -1,3 +1,4 @@
+import { requireOpenQuarter } from "@/features/iva/server/guard";
 import { requireOwnedAccount, validateRecordAccount } from "@/features/accounts/server/queries";
 import { authMiddleware } from "@/middleware/auth";
 import { createDb } from "@company-manager/db";
@@ -40,6 +41,7 @@ export const createExpense = createServerFn({ method: "POST" })
     }
 
     const db = createDb();
+    await requireOpenQuarter(db, userId, data.date);
     await requireOwnedAccount(db, userId, data.accountId);
     await db.insert(expense).values({
       accountId: data.accountId,
@@ -68,6 +70,10 @@ export const updateExpense = createServerFn({ method: "POST" })
       where: and(eq(expense.id, data.id), eq(expense.userId, userId)),
     });
     if (!existing) throw new Error("Expense not found or no longer available");
+    await Promise.all([
+      requireOpenQuarter(db, userId, existing.createdAt),
+      requireOpenQuarter(db, userId, data.date),
+    ]);
     await validateRecordAccount(db, userId, data.accountId || null, existing.accountId);
     const [updated] = await db
       .update(expense)
@@ -93,7 +99,13 @@ export const deleteExpense = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to delete an expense");
 
-    const [deleted] = await createDb()
+    const db = createDb();
+    const existing = await db.query.expense.findFirst({
+      where: and(eq(expense.id, data.id), eq(expense.userId, userId)),
+    });
+    if (!existing) throw new Error("Record not found or no longer available");
+    await requireOpenQuarter(db, userId, existing.createdAt);
+    const [deleted] = await db
       .delete(expense)
       .where(and(eq(expense.id, data.id), eq(expense.userId, userId)))
       .returning({ id: expense.id });

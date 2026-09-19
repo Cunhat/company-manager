@@ -1,3 +1,4 @@
+import { requireOpenQuarter } from "@/features/iva/server/guard";
 import { requireOwnedAccount, validateRecordAccount } from "@/features/accounts/server/queries";
 import { authMiddleware } from "@/middleware/auth";
 import { createDb } from "@company-manager/db";
@@ -40,6 +41,7 @@ export const createInvoice = createServerFn({ method: "POST" })
     }
 
     const db = createDb();
+    await requireOpenQuarter(db, userId, data.date);
     await requireOwnedAccount(db, userId, data.accountId);
     await db.insert(invoice).values({
       accountId: data.accountId,
@@ -49,7 +51,6 @@ export const createInvoice = createServerFn({ method: "POST" })
       value: Number(data.value),
       createdAt: new Date(`${data.date}T00:00:00.000Z`),
       status: data.status,
-      ivaStatus: data.ivaStatus,
     });
   });
 
@@ -70,6 +71,10 @@ export const updateInvoice = createServerFn({ method: "POST" })
       where: and(eq(invoice.id, data.id), eq(invoice.userId, userId)),
     });
     if (!existing) throw new Error("Invoice not found or no longer available");
+    await Promise.all([
+      requireOpenQuarter(db, userId, existing.createdAt),
+      requireOpenQuarter(db, userId, data.date),
+    ]);
     await validateRecordAccount(db, userId, data.accountId || null, existing.accountId);
     const [updated] = await db
       .update(invoice)
@@ -80,7 +85,6 @@ export const updateInvoice = createServerFn({ method: "POST" })
         value: Number(data.value),
         createdAt: new Date(`${data.date}T00:00:00.000Z`),
         status: data.status,
-        ivaStatus: data.ivaStatus,
         updatedAt: new Date(),
       })
       .where(and(eq(invoice.id, data.id), eq(invoice.userId, userId)))
@@ -97,7 +101,13 @@ export const deleteInvoice = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to delete an invoice");
 
-    const [deleted] = await createDb()
+    const db = createDb();
+    const existing = await db.query.invoice.findFirst({
+      where: and(eq(invoice.id, data.id), eq(invoice.userId, userId)),
+    });
+    if (!existing) throw new Error("Record not found or no longer available");
+    await requireOpenQuarter(db, userId, existing.createdAt);
+    const [deleted] = await db
       .delete(invoice)
       .where(and(eq(invoice.id, data.id), eq(invoice.userId, userId)))
       .returning({ id: invoice.id });

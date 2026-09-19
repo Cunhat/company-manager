@@ -1,8 +1,10 @@
+import { getIvaQuery } from "@/features/iva/server/functions";
+import { periodOf } from "@/features/iva/lib/quarters";
 import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
 import { getAccountsQuery } from "@/features/accounts/server/functions";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { getExpenseIvaValue } from "@/lib/expense";
+import { expenseIvaCents } from "@/features/iva/lib/amounts";
 import { IconReceiptEuro } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getExpensesQuery } from "../server/functions";
@@ -81,6 +83,7 @@ function ExpensesTable({
   onSelect: (expense: Expense, trigger: HTMLElement | null) => void;
 }) {
   const { data: accounts } = useQuery(getAccountsQuery);
+  const ivaQuery = useQuery(getIvaQuery);
   const accountNames = new Map((accounts ?? []).map((account) => [account.id, account.name]));
 
   if (isError) {
@@ -142,25 +145,43 @@ function ExpensesTable({
           {expenses.map((expense) => {
             const iva = expense.iva;
             const date = new Date(expense.createdAt);
+            const period = periodOf(date);
+            const quarter = ivaQuery.data?.find(
+              (q) => q.year === period.year && q.quarter === period.quarter,
+            );
+            const locked = quarter?.status === "closed";
+            const unavailable = !ivaQuery.data || ivaQuery.isError;
 
             return (
               <tr
                 key={expense.id}
                 className="cursor-pointer transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
-                onClick={(event) => onSelect(expense, event.currentTarget.querySelector("button"))}
+                onClick={(event) => {
+                  if (!locked && !unavailable)
+                    onSelect(expense, event.currentTarget.querySelector("button"));
+                }}
               >
                 <th scope="row" className="min-w-48 px-5 py-5 font-medium">
                   <button
                     type="button"
+                    disabled={locked || unavailable}
+                    title={
+                      locked
+                        ? "Reopen this quarter on the IVA page to edit"
+                        : unavailable
+                          ? "Quarter status unavailable"
+                          : undefined
+                    }
                     aria-label={`Edit expense ${expense.title}`}
                     aria-haspopup="dialog"
                     className="block max-w-lg cursor-pointer rounded-sm text-left break-words underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [overflow-wrap:anywhere]"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onSelect(expense, event.currentTarget);
+                      if (!locked && !unavailable) onSelect(expense, event.currentTarget);
                     }}
                   >
                     {expense.title}
+                    {locked ? " · Locked" : ""}
                   </button>
                   <p className="mt-1 text-xs font-normal text-muted-foreground">
                     {expense.accountId
@@ -175,7 +196,7 @@ function ExpensesTable({
                   {amountFormatter.format(Number(expense.value))}
                 </td>
                 <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
-                  {amountFormatter.format(getExpenseIvaValue(expense))}
+                  {amountFormatter.format(expenseIvaCents(expense.value, expense.iva) / 100)}
                 </td>
                 <td className="px-5 py-5">
                   <span

@@ -19,7 +19,10 @@ export const expense = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("expense_accountId_idx").on(table.accountId)],
+  (table) => [
+    index("expense_accountId_idx").on(table.accountId),
+    index("expense_iva_period_idx").on(table.userId, table.createdAt),
+  ],
 );
 
 export const expenseRelations = relations(expense, ({ one }) => ({

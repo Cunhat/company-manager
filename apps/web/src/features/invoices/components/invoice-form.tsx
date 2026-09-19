@@ -1,6 +1,7 @@
+import { DocumentLockNotice, useDocumentLock } from "@/features/iva/components/document-lock";
 import { AccountSelect } from "@/features/accounts/components/account-select";
 import { useId, useRef, useState, type ReactNode } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -10,9 +11,7 @@ import {
   createInvoiceSchema,
   editInvoiceFormSchema,
   invoiceStatuses,
-  ivaStatuses,
   type InvoiceStatus,
-  type IvaStatus,
 } from "../schemas/validators";
 import { InvoiceFormField, invoiceFields } from "./invoice-form-field";
 
@@ -62,6 +61,9 @@ export function InvoiceForm({
       }
     },
   });
+  const documentDate = useStore(form.store, (state) => state.values.date);
+  const documentLock = useDocumentLock(documentDate);
+  const lockBlocked = documentLock.closed || documentLock.unavailable;
   return (
     <form
       className="flex min-h-0 flex-1 flex-col"
@@ -135,33 +137,8 @@ export function InvoiceForm({
                 </Field>
               )}
             </form.Field>
-            <form.Field name="ivaStatus">
-              {(field) => (
-                <Field>
-                  <FieldLabel id={`${id}-iva-status`}>IVA status</FieldLabel>
-                  <ToggleGroup
-                    value={[field.state.value]}
-                    onValueChange={(values) => {
-                      const next = values[0];
-                      if (ivaStatuses.includes(next as IvaStatus))
-                        field.handleChange(next as IvaStatus);
-                    }}
-                    disabled={disabled || isSubmitting}
-                    variant="outline"
-                    spacing={2}
-                    className="w-full"
-                    aria-labelledby={`${id}-iva-status`}
-                  >
-                    {ivaStatuses.map((status) => (
-                      <ToggleGroupItem key={status} value={status} className="flex-1 capitalize">
-                        {status}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                  <FieldError errors={field.state.meta.errors} />
-                </Field>
-              )}
-            </form.Field>
+
+            <DocumentLockNotice date={documentDate} />
             {error ? (
               <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
@@ -195,7 +172,13 @@ export function InvoiceForm({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={disabled || isSubmitting || !canSubmit || (mode === "edit" && !changed)}
+                  disabled={
+                    disabled ||
+                    lockBlocked ||
+                    isSubmitting ||
+                    !canSubmit ||
+                    (mode === "edit" && !changed)
+                  }
                 >
                   {isSubmitting ? <Spinner /> : null}
                   {mode === "create"

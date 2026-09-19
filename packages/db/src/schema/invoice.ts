@@ -1,21 +1,9 @@
 import { relations, sql } from "drizzle-orm";
-import {
-  numeric,
-  index,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { numeric, index, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { financialAccount } from "./account";
 
-export const invoiceStatus = pgEnum("invoice_status", [
-  "pending",
-  "paid",
-  "cancelled",
-]);
+export const invoiceStatus = pgEnum("invoice_status", ["pending", "paid", "cancelled"]);
 
 export const ivaStatus = pgEnum("iva_status", ["pending", "paid"]);
 
@@ -39,7 +27,10 @@ export const invoice = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("invoice_accountId_idx").on(table.accountId)],
+  (table) => [
+    index("invoice_accountId_idx").on(table.accountId),
+    index("invoice_iva_period_idx").on(table.userId, table.createdAt),
+  ],
 );
 
 export const invoiceRelations = relations(invoice, ({ one }) => ({

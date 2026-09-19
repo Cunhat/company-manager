@@ -1,8 +1,10 @@
+import { getIvaQuery } from "@/features/iva/server/functions";
+import { periodOf } from "@/features/iva/lib/quarters";
 import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
 import { getAccountsQuery } from "@/features/accounts/server/functions";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { IVA_RATE } from "@/lib/consts";
+import { invoiceIvaCents } from "@/features/iva/lib/amounts";
 import { IconFileInvoice } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { InvoiceStatus } from "../schemas/validators";
@@ -97,6 +99,7 @@ function InvoicesTable({
   onSelect: (invoice: Invoice, trigger: HTMLElement | null) => void;
 }) {
   const { data: accounts } = useQuery(getAccountsQuery);
+  const ivaQuery = useQuery(getIvaQuery);
   const accountNames = new Map((accounts ?? []).map((account) => [account.id, account.name]));
 
   if (isError) {
@@ -160,27 +163,44 @@ function InvoicesTable({
         <tbody className="divide-y">
           {invoices.map((invoice) => {
             const status = statuses[invoice.status];
-            const ivaStatus = statuses[invoice.ivaStatus];
             const date = new Date(invoice.createdAt);
+            const period = periodOf(date);
+            const quarter = ivaQuery.data?.find(
+              (q) => q.year === period.year && q.quarter === period.quarter,
+            );
+            const locked = quarter?.status === "closed";
+            const unavailable = !ivaQuery.data || ivaQuery.isError;
 
             return (
               <tr
                 key={invoice.id}
                 className="cursor-pointer transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
-                onClick={(event) => onSelect(invoice, event.currentTarget.querySelector("button"))}
+                onClick={(event) => {
+                  if (!locked && !unavailable)
+                    onSelect(invoice, event.currentTarget.querySelector("button"));
+                }}
               >
                 <th scope="row" className="min-w-48 px-5 py-5 font-medium">
                   <button
                     type="button"
+                    disabled={locked || unavailable}
+                    title={
+                      locked
+                        ? "Reopen this quarter on the IVA page to edit"
+                        : unavailable
+                          ? "Quarter status unavailable"
+                          : undefined
+                    }
                     aria-label={`Edit invoice ${invoice.name}`}
                     aria-haspopup="dialog"
                     className="block max-w-lg cursor-pointer rounded-sm text-left break-words underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [overflow-wrap:anywhere]"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onSelect(invoice, event.currentTarget);
+                      if (!locked && !unavailable) onSelect(invoice, event.currentTarget);
                     }}
                   >
                     {invoice.name}
+                    {locked ? " · Locked" : ""}
                   </button>
                   <p className="mt-1 text-xs font-normal text-muted-foreground">
                     {invoice.accountId
@@ -195,7 +215,9 @@ function InvoicesTable({
                   {amountFormatter.format(invoice.value)}
                 </td>
                 <td className="whitespace-nowrap px-5 py-5 text-right font-medium tabular-nums">
-                  {amountFormatter.format(invoice.value * IVA_RATE)}
+                  {amountFormatter.format(
+                    invoice.status === "cancelled" ? 0 : invoiceIvaCents(invoice.value) / 100,
+                  )}
                 </td>
                 <td className="px-5 py-5">
                   <span
@@ -207,10 +229,16 @@ function InvoicesTable({
                 </td>
                 <td className="px-5 py-5">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${ivaStatus.className}`}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${locked ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
                   >
                     <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                    {ivaStatus.label}
+                    {invoice.status === "cancelled"
+                      ? "Excluded"
+                      : locked
+                        ? "Quarter closed"
+                        : quarter?.governmentCents != null
+                          ? "Quarter reopened"
+                          : "Quarter open"}
                   </span>
                 </td>
               </tr>
