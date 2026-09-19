@@ -1,0 +1,76 @@
+DO $$
+DECLARE account uuid; other_account uuid; item uuid; other_item uuid; q record; original_payment uuid; n integer;
+BEGIN
+  INSERT INTO "user" VALUES ('iva-test'), ('iva-other');
+  INSERT INTO financial_account(user_id) VALUES ('iva-test') RETURNING id INTO account;
+  INSERT INTO financial_account(user_id) VALUES ('iva-other') RETURNING id INTO other_account;
+  INSERT INTO invoice(user_id, account_id, name, value, status, created_at)
+    VALUES ('iva-test', account, 'Sale', 1000, 'pending', '2025-01-01') RETURNING id INTO item;
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-test', 9999, 'cancelled', '2025-02-01');
+  INSERT INTO expense(user_id, account_id, value, iva, created_at) VALUES ('iva-test', account, 123, true, '2025-03-31');
+  INSERT INTO expense(user_id, value, iva, created_at) VALUES ('iva-test', 123, false, '2025-03-31');
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-other', 99999, 'pending', '2024-01-01');
+  SELECT * INTO q FROM iva_ledger('iva-test', 2025) WHERE quarter = 1;
+  ASSERT q.sales_cents = 23000 AND q.deductions_cents = 2300 AND q.payable_cents = 20700 AND q.unpaid_invoices = 1, 'Amounts, cancellations, dates or ownership incorrect';
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, account, '2025-05-25'); RAISE EXCEPTION 'FAIL unpaid'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Pay every%', SQLERRM; END;
+  UPDATE invoice SET status = 'paid' WHERE id = item;
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 3, 0); RAISE EXCEPTION 'FAIL order'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Close all earlier quarters first', SQLERRM; END;
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20701, account, '2025-05-25'); RAISE EXCEPTION 'FAIL mismatch'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Government amount%', SQLERRM; END;
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, other_account, '2025-05-25'); RAISE EXCEPTION 'FAIL account'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Choose one of your accounts', SQLERRM; END;
+  ASSERT (SELECT count(*) FROM "transaction") = 0, 'Failed close created a payment';
+  INSERT INTO iva_quarter (user_id, year, quarter) VALUES ('iva-test', 2025, 1);
+  PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, account, '2025-05-25');
+  SELECT payment_transaction_id INTO original_payment FROM iva_quarter WHERE user_id = 'iva-test' AND quarter = 1;
+  ASSERT (SELECT value = 207 AND created_at = '2025-05-25' FROM "transaction" WHERE id = original_payment), 'Payment amount/date incorrect';
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, account, '2025-05-25'); RAISE EXCEPTION 'FAIL duplicate'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'This quarter is already closed', SQLERRM; END;
+  BEGIN UPDATE invoice SET value = 900 WHERE id = item; RAISE EXCEPTION 'FAIL edit'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  BEGIN DELETE FROM invoice WHERE id = item; RAISE EXCEPTION 'FAIL delete'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  BEGIN INSERT INTO expense(user_id, value, iva, created_at) VALUES ('iva-test', 123, true, '2025-03-01'); RAISE EXCEPTION 'FAIL add'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  BEGIN UPDATE expense SET value = 1230 WHERE user_id = 'iva-test'; RAISE EXCEPTION 'FAIL expense edit'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  BEGIN DELETE FROM expense WHERE user_id = 'iva-test'; RAISE EXCEPTION 'FAIL expense delete'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-test', 100, 'paid', '2025-04-01') RETURNING id INTO other_item;
+  BEGIN UPDATE invoice SET created_at = '2025-03-31' WHERE id = other_item; RAISE EXCEPTION 'FAIL move in'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  BEGIN UPDATE invoice SET created_at = '2025-04-01' WHERE id = item; RAISE EXCEPTION 'FAIL move out'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed.%', SQLERRM; END;
+  -- Transactions stay editable after closing.
+  UPDATE "transaction" SET description = 'Bank correction' WHERE id = original_payment;
+  INSERT INTO expense(user_id, value, iva, created_at) VALUES ('iva-test', 1230, true, '2025-04-01');
+  SELECT * INTO q FROM iva_ledger('iva-test', 2025) WHERE quarter = 2;
+  ASSERT q.sales_cents = 2300 AND q.deductions_cents = 23000 AND q.payable_cents = 0 AND q.carry_out_cents = 20700, 'Carryover calculation wrong';
+  PERFORM iva_close_quarter('iva-test', 2025, 2, 0);
+  PERFORM iva_close_quarter('iva-test', 2025, 3, 0);
+  PERFORM iva_close_quarter('iva-test', 2025, 4, 0);
+  ASSERT (SELECT count(*) FROM "transaction") = 1, 'Zero quarters created transactions';
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-test', 1000, 'paid', '2026-01-01');
+  SELECT * INTO q FROM iva_ledger('iva-test', 2026) WHERE year = 2026 AND quarter = 1;
+  ASSERT q.carry_in_cents = 20700 AND q.payable_cents = 2300, 'Carryover across year boundary wrong';
+  PERFORM iva_reopen_quarter('iva-test', 2025, 1);
+  ASSERT NOT EXISTS (SELECT 1 FROM "transaction" WHERE id = original_payment), 'Reopening retained the IVA payment';
+  ASSERT (SELECT status = 'open' AND payment_transaction_id IS NULL AND government_cents = 20700 FROM iva_quarter WHERE user_id = 'iva-test' AND year = 2025 AND quarter = 1), 'Reopening did not clear the link or preserve the government amount';
+  BEGIN PERFORM iva_reopen_quarter('iva-test', 2025, 1); RAISE EXCEPTION 'FAIL repeated reopen'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Closed quarter not found', SQLERRM; END;
+  UPDATE invoice SET value = 900 WHERE id = item;
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 18400); RAISE EXCEPTION 'FAIL frozen government'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Corrections must preserve%', SQLERRM; END;
+  UPDATE invoice SET value = 1000 WHERE id = item;
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700); RAISE EXCEPTION 'FAIL missing payment date'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Choose the payment date', SQLERRM; END;
+  PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, account, '2025-06-01');
+  ASSERT (SELECT count(*) FROM "transaction") = 1, 'Reclosing duplicated payment';
+  ASSERT (SELECT payment_transaction_id <> original_payment FROM iva_quarter WHERE user_id = 'iva-test' AND year = 2025 AND quarter = 1), 'Reclosing did not create a new payment';
+  ASSERT (SELECT value = 207 AND created_at = '2025-06-01' FROM "transaction" WHERE user_id = 'iva-test'), 'Replacement payment amount/date incorrect';
+  PERFORM iva_reopen_quarter('iva-test', 2025, 2);
+  UPDATE expense SET value = 2460 WHERE user_id = 'iva-test' AND created_at = '2025-04-01';
+  SELECT * INTO q FROM iva_ledger('iva-test', 2026) WHERE year = 2026 AND quarter = 1;
+  ASSERT q.carry_in_cents = 20700 AND q.payable_cents = 2300, 'Reopening changed later calculations';
+  ASSERT (SELECT bool_and(status = 'closed') FROM iva_quarter WHERE user_id = 'iva-test' AND year = 2025 AND quarter > 2), 'Later quarters reopened';
+  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 2, 0); RAISE EXCEPTION 'FAIL frozen carryover'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Corrections must preserve%', SQLERRM; END;
+  UPDATE expense SET value = 1230 WHERE user_id = 'iva-test' AND created_at = '2025-04-01';
+  PERFORM iva_close_quarter('iva-test', 2025, 2, 0);
+  -- Per-document rounding agrees with displayed values, rather than rounding a yearly sum.
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-test', 0.03, 'paid', '2026-04-01'), ('iva-test', 0.03, 'paid', '2026-04-01');
+  SELECT * INTO q FROM iva_ledger('iva-test', 2026) WHERE year = 2026 AND quarter = 2;
+  ASSERT q.sales_cents = 2, 'Per-document rounding wrong';
+  -- Deleting an account only unassigns locked source documents.
+  DELETE FROM financial_account WHERE id = account;
+  ASSERT (SELECT account_id IS NULL FROM invoice WHERE id = item), 'Account deletion failed to unassign document';
+  PERFORM iva_reopen_quarter('iva-test', 2025, 1);
+  ASSERT (SELECT status = 'open' AND payment_transaction_id IS NULL FROM iva_quarter WHERE user_id = 'iva-test' AND year = 2025 AND quarter = 1), 'Could not reopen after payment was already deleted';
+END;
+$$;

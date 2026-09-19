@@ -1,3 +1,4 @@
+import { getIvaQuery } from "@/features/iva/server/functions";
 import { getYearlyInvoicesAndExpensesQuery } from "@/features/dashboard/server/yearly-invoices-and-expenses";
 import { getQuarterlyMetricsQuery } from "@/features/dashboard/server/quarterly-metrics";
 import DashboardView from "@/features/dashboard/views/dashboard-view";
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_authed/")({
   component: DashboardView,
   loader: async ({ context }) => {
     await Promise.all([
+      context.queryClient.ensureQueryData(getIvaQuery),
       context.queryClient.query(getAccountsQuery),
       context.queryClient.query(getQuarterlyMetricsQuery()),
       context.queryClient.query({

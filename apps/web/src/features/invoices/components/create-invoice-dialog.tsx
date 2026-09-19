@@ -55,7 +55,6 @@ export function CreateInvoiceDialog() {
               value: "",
               date: format(new Date(), "yyyy-MM-dd"),
               status: "pending",
-              ivaStatus: "pending",
             }}
             onSubmit={handleCreate}
             onCancel={() => setOpen(false)}

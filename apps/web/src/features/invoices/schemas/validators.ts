@@ -14,7 +14,6 @@ export const createInvoiceSchema = z.object({
   accountId: requiredAccountSchema,
   date: z.iso.date("Pick a valid date"),
   status: z.enum(invoiceStatuses),
-  ivaStatus: z.enum(ivaStatuses),
 });
 
 export const invoiceIdSchema = z.object({ id: z.uuid() });

@@ -1,8 +1,7 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { IVA_RATE, QUARTERLY_DECLARATION_DEADLINES } from "../../../lib/consts";
-import { getExpenseNetValue } from "../../../lib/expense";
+import { QUARTERLY_DECLARATION_DEADLINES } from "../../../lib/consts";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -41,30 +40,4 @@ export function getNextIvaDeadline(now = new Date()) {
     daysToPay: next.payment.diff(today, "day"),
     declarationDatePassed: next.declaration.isBefore(today, "day"),
   };
-}
-
-type Invoice = { value: number; createdAt: Date | string; status: string };
-type Expense = { value: string; createdAt: Date | string; iva: boolean };
-
-export function estimateQuarterIva(
-  invoices: Invoice[],
-  expenses: Expense[],
-  period: Pick<ReturnType<typeof getNextIvaDeadline>, "start" | "end">,
-) {
-  const inPeriod = (date: Date | string) => {
-    const recorded = dayjs.utc(date);
-    return !recorded.isBefore(period.start) && recorded.isBefore(period.end);
-  };
-  // Keep cents while summing. Pending invoices also count in the ordinary IVA regime.
-  const sales = invoices
-    .filter((invoice) => invoice.status !== "cancelled" && inPeriod(invoice.createdAt))
-    .reduce((sum, invoice) => sum + Math.round(invoice.value * 100), 0);
-  const deductibleIva = expenses
-    .filter((expense) => expense.iva && inPeriod(expense.createdAt))
-    .reduce(
-      (sum, expense) =>
-        sum + Math.round((Number(expense.value) - getExpenseNetValue(expense)) * 100),
-      0,
-    );
-  return (Math.round(sales * IVA_RATE) - deductibleIva) / 100;
 }

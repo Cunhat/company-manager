@@ -1,3 +1,4 @@
+import { useDocumentLock } from "@/features/iva/components/document-lock";
 import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ export function EditInvoiceSheet({
   onClose: () => void;
   returnFocus: HTMLElement | null;
 }) {
+  const lock = useDocumentLock(invoice.createdAt);
   const client = useQueryClient();
   const update = useMutation(updateInvoiceMutation);
   const [submitting, setSubmitting] = useState(false);
@@ -70,16 +72,15 @@ export function EditInvoiceSheet({
             value: String(invoice.value),
             date: new Date(invoice.createdAt).toISOString().slice(0, 10),
             status: invoice.status,
-            ivaStatus: invoice.ivaStatus,
           }}
           onSubmit={handleUpdate}
           onCancel={onClose}
           onSubmittingChange={setSubmitting}
-          disabled={confirmDelete}
+          disabled={confirmDelete || lock.closed || lock.unavailable}
           secondaryAction={
             <DeleteInvoiceDialog
               invoice={invoice}
-              disabled={submitting}
+              disabled={submitting || lock.closed || lock.unavailable}
               onClose={onClose}
               onOpenChange={setConfirmDelete}
             />

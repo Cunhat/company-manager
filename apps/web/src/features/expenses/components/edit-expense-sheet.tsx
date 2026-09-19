@@ -1,3 +1,4 @@
+import { useDocumentLock } from "@/features/iva/components/document-lock";
 import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ export function EditExpenseSheet({
   onClose: () => void;
   returnFocus: HTMLElement | null;
 }) {
+  const lock = useDocumentLock(expense.createdAt);
   const client = useQueryClient();
   const update = useMutation(updateExpenseMutation);
   const [submitting, setSubmitting] = useState(false);
@@ -73,11 +75,11 @@ export function EditExpenseSheet({
           onSubmit={handleUpdate}
           onCancel={onClose}
           onSubmittingChange={setSubmitting}
-          disabled={confirmDelete}
+          disabled={confirmDelete || lock.closed || lock.unavailable}
           secondaryAction={
             <DeleteExpenseDialog
               expense={expense}
-              disabled={submitting}
+              disabled={submitting || lock.closed || lock.unavailable}
               onClose={onClose}
               onOpenChange={setConfirmDelete}
             />

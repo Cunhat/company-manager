@@ -1,28 +1,24 @@
-import { getExpensesQuery } from "@/features/expenses/server/functions";
-import { getInvoicesQuery } from "@/features/invoices/server/functions";
+import { getIvaQuery } from "@/features/iva/server/functions";
 import { IconCalendarWeekFilled, IconClockFilled } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { ArrowUpRight, Clock3 } from "lucide-react";
-import {
-  estimateQuarterIva,
-  getNextIvaDeadline,
-} from "../lib/next-iva-payment";
+import { getNextIvaDeadline } from "../lib/next-iva-payment";
 
 const money = new Intl.NumberFormat("en-IE", {
   style: "currency",
   currency: "EUR",
 });
 export default function NextIvaPayment() {
-  const { data: invoices } = useSuspenseQuery(getInvoicesQuery);
-  const { data: expenses } = useSuspenseQuery(getExpensesQuery);
+  const { data: ledger } = useSuspenseQuery(getIvaQuery);
 
   const now = dayjs.utc().toDate();
   const deadline = now ? getNextIvaDeadline(now) : null;
 
-  const amount = deadline
-    ? estimateQuarterIva(invoices, expenses, deadline)
-    : null;
+  const period = ledger.find(
+    (q) => q.year === deadline?.taxYear && `Q${q.quarter}` === deadline.quarter,
+  );
+  const amount = period ? period.payableCents / 100 : 0;
 
   return (
     <section
@@ -48,6 +44,16 @@ export default function NextIvaPayment() {
         <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">
           {amount === null ? "—" : money.format(Math.max(0, amount))}
         </p>
+        <p className="mt-3 text-sm text-stone-700">
+          {period?.status === "closed"
+            ? period.payableCents > 0
+              ? "Quarter closed. Payment recorded."
+              : "Quarter closed. No payment due."
+            : "Includes unused deductions from the previous quarter."}{" "}
+          <a href="/iva" className="font-medium underline underline-offset-4">
+            View IVA
+          </a>
+        </p>
       </div>
       <div className="flex flex-col justify-center gap-5 border-t border-amber-200 p-6 lg:border-t-0 lg:border-l">
         <div className="flex gap-3">
@@ -55,9 +61,7 @@ export default function NextIvaPayment() {
           <div>
             <p className="text-xs text-stone-600">
               Declaration deadline
-              {deadline?.declarationDatePassed
-                ? " · date passed, verify submission"
-                : ""}
+              {deadline?.declarationDatePassed ? " · date passed, verify submission" : ""}
             </p>
             <p className="mt-1 font-semibold">
               {deadline ? deadline.declaration.format("D MMMM YYYY") : "—"}
