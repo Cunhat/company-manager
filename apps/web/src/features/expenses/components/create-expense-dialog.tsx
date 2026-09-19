@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconPlus } from "@tabler/icons-react";
@@ -12,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { createExpenseMutation, getExpensesQuery } from "../server/functions";
+import { createExpenseMutation } from "../server/functions";
 import { ExpenseForm, type ExpenseFormValues } from "./expense-form";
 
 export function CreateExpenseDialog() {
@@ -23,7 +24,7 @@ export function CreateExpenseDialog() {
 
   async function handleCreate(values: ExpenseFormValues) {
     await create.mutateAsync(values);
-    void client.invalidateQueries(getExpensesQuery);
+    void invalidateAccountData(client);
     toast.success("Expense created");
     setOpen(false);
   }
@@ -48,6 +49,7 @@ export function CreateExpenseDialog() {
           <ExpenseForm
             mode="create"
             defaultValues={{
+              accountId: "",
               title: "",
               value: "",
               date: format(new Date(), "yyyy-MM-dd"),

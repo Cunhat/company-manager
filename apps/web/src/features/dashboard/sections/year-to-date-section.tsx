@@ -6,6 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import StatCard from "../components/stat-card";
+import CurrentBalanceCard from "../components/current-balance-card";
 import { getYearlyInvoicesAndExpensesQuery } from "../server/yearly-invoices-and-expenses";
 import { IVA_RATE } from "@/lib/consts";
 import { getExpenseNetValue } from "@/lib/expense";
@@ -29,7 +30,11 @@ export default function YearToDateSection() {
   const collectedIva = invoices * IVA_RATE - expensesIva;
 
   return (
-    <section aria-label="Year to date totals" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section
+      aria-label="Current balance and year to date totals"
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+    >
+      <CurrentBalanceCard />
       {[
         {
           label: "Sales invoices",

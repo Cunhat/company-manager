@@ -19,6 +19,8 @@ import {
   IconFileInvoiceFilled,
   IconRoute,
   IconCalendarDollar,
+  IconBuildingBank,
+  IconArrowsExchange,
 } from "@tabler/icons-react";
 
 const data = {
@@ -118,6 +120,16 @@ const data = {
       name: "Dashboard",
       url: "/",
       icon: <IconLayoutDashboardFilled />,
+    },
+    {
+      name: "Accounts",
+      url: "/accounts",
+      icon: <IconBuildingBank />,
+    },
+    {
+      name: "Transactions",
+      url: "/transactions",
+      icon: <IconArrowsExchange />,
     },
     {
       name: "Invoices",

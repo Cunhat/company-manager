@@ -1,6 +1,9 @@
+import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
+import { getAccountsQuery } from "@/features/accounts/server/functions";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { getExpenseIvaValue } from "@/lib/expense";
-import { IconArrowDown, IconReceiptEuro } from "@tabler/icons-react";
+import { IconReceiptEuro } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getExpensesQuery } from "../server/functions";
 import type { Expense } from "../schemas/types";
@@ -20,6 +23,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-GB", {
 });
 
 export default function ListExpenses() {
+  const [accountFilter, setAccountFilter] = useState("all");
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const { data: expenses, isError, isFetching, refetch } = useSuspenseQuery(getExpensesQuery);
@@ -38,14 +42,11 @@ export default function ListExpenses() {
             {expenses.length}
           </span>
         </div>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <IconArrowDown className="size-3.5" aria-hidden="true" />
-          Newest first
-        </span>
+        <AccountFilter value={accountFilter} onChange={setAccountFilter} includeUnassigned />
       </div>
 
       <ExpensesTable
-        expenses={expenses}
+        expenses={expenses.filter((record) => matchesAccount(record, accountFilter))}
         isError={isError}
         isFetching={isFetching}
         refetch={refetch}
@@ -79,6 +80,9 @@ function ExpensesTable({
   refetch: () => void;
   onSelect: (expense: Expense, trigger: HTMLElement | null) => void;
 }) {
+  const { data: accounts } = useQuery(getAccountsQuery);
+  const accountNames = new Map((accounts ?? []).map((account) => [account.id, account.name]));
+
   if (isError) {
     return (
       <div
@@ -99,9 +103,9 @@ function ExpensesTable({
         <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-teal-300">
           <IconReceiptEuro className="size-6" aria-hidden="true" />
         </div>
-        <h3 className="font-semibold">No expenses yet</h3>
+        <h3 className="font-semibold">No expenses to show</h3>
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-          Create your first expense to see its details here.
+          Create a record or choose a different account filter.
         </p>
       </div>
     );
@@ -158,6 +162,11 @@ function ExpensesTable({
                   >
                     {expense.title}
                   </button>
+                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                    {expense.accountId
+                      ? (accountNames.get(expense.accountId) ?? "Account unavailable")
+                      : "Unassigned"}
+                  </p>
                 </th>
                 <td className="whitespace-nowrap px-5 py-5 text-muted-foreground tabular-nums">
                   <time dateTime={date.toISOString()}>{dateFormatter.format(date)}</time>

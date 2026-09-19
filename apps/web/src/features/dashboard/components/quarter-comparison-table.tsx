@@ -64,10 +64,6 @@ export default function QuarterComparisonTable({
           ))}
         </tbody>
       </table>
-      <p className="mt-4 text-xs text-muted-foreground">
-        Sales include pending and paid invoices. Sales and expenses exclude IVA.
-        The current quarter is partial.
-      </p>
     </div>
   );
 }

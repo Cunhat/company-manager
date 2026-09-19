@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -34,7 +35,7 @@ export function EditExpenseSheet({
         ?.map((item) => (item.id === updated.id ? updated : item))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     );
-    void client.invalidateQueries(getExpensesQuery);
+    void invalidateAccountData(client);
     toast.success("Expense updated");
     onClose();
   }
@@ -63,6 +64,7 @@ export function EditExpenseSheet({
         <ExpenseForm
           mode="edit"
           defaultValues={{
+            accountId: expense.accountId ?? "",
             title: expense.title,
             value: expense.value,
             date: new Date(expense.createdAt).toISOString().slice(0, 10),

@@ -1,6 +1,9 @@
+import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
+import { getAccountsQuery } from "@/features/accounts/server/functions";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { IVA_RATE } from "@/lib/consts";
-import { IconArrowDown, IconFileInvoice } from "@tabler/icons-react";
+import { IconFileInvoice } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import type { InvoiceStatus } from "../schemas/validators";
 import { getInvoicesQuery } from "../server/functions";
@@ -36,6 +39,7 @@ const statuses: Record<InvoiceStatus, { label: string; className: string }> = {
 };
 
 export default function ListInvoices() {
+  const [accountFilter, setAccountFilter] = useState("all");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const { data: invoices, isError, isFetching, refetch } = useSuspenseQuery(getInvoicesQuery);
@@ -54,14 +58,11 @@ export default function ListInvoices() {
             {invoices.length}
           </span>
         </div>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <IconArrowDown className="size-3.5" aria-hidden="true" />
-          Newest first
-        </span>
+        <AccountFilter value={accountFilter} onChange={setAccountFilter} includeUnassigned />
       </div>
 
       <InvoicesTable
-        invoices={invoices}
+        invoices={invoices.filter((record) => matchesAccount(record, accountFilter))}
         isError={isError}
         isFetching={isFetching}
         refetch={refetch}
@@ -95,6 +96,9 @@ function InvoicesTable({
   refetch: () => void;
   onSelect: (invoice: Invoice, trigger: HTMLElement | null) => void;
 }) {
+  const { data: accounts } = useQuery(getAccountsQuery);
+  const accountNames = new Map((accounts ?? []).map((account) => [account.id, account.name]));
+
   if (isError) {
     return (
       <div
@@ -115,9 +119,9 @@ function InvoicesTable({
         <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-teal-300">
           <IconFileInvoice className="size-6" aria-hidden="true" />
         </div>
-        <h3 className="font-semibold">No invoices yet</h3>
+        <h3 className="font-semibold">No invoices to show</h3>
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-          Create your first invoice to see its details and status here.
+          Create a record or choose a different account filter.
         </p>
       </div>
     );
@@ -178,6 +182,11 @@ function InvoicesTable({
                   >
                     {invoice.name}
                   </button>
+                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                    {invoice.accountId
+                      ? (accountNames.get(invoice.accountId) ?? "Account unavailable")
+                      : "Unassigned"}
+                  </p>
                 </th>
                 <td className="whitespace-nowrap px-5 py-5 text-muted-foreground tabular-nums">
                   <time dateTime={date.toISOString()}>{dateFormatter.format(date)}</time>

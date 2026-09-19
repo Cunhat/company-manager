@@ -1,3 +1,4 @@
+import { requireOwnedAccount, validateRecordAccount } from "@/features/accounts/server/queries";
 import { authMiddleware } from "@/middleware/auth";
 import { createDb } from "@company-manager/db";
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
@@ -39,7 +40,9 @@ export const createInvoice = createServerFn({ method: "POST" })
     }
 
     const db = createDb();
+    await requireOwnedAccount(db, userId, data.accountId);
     await db.insert(invoice).values({
+      accountId: data.accountId,
       userId,
       name: data.name,
       description: data.description,
@@ -62,9 +65,16 @@ export const updateInvoice = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to edit an invoice");
 
-    const [updated] = await createDb()
+    const db = createDb();
+    const existing = await db.query.invoice.findFirst({
+      where: and(eq(invoice.id, data.id), eq(invoice.userId, userId)),
+    });
+    if (!existing) throw new Error("Invoice not found or no longer available");
+    await validateRecordAccount(db, userId, data.accountId || null, existing.accountId);
+    const [updated] = await db
       .update(invoice)
       .set({
+        accountId: data.accountId || null,
         name: data.name,
         description: data.description,
         value: Number(data.value),
