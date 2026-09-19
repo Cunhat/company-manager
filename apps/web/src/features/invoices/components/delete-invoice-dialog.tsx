@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Invoice } from "../schemas/types";
-import { deleteInvoiceMutation, getInvoicesQuery } from "../server/functions";
+import { deleteInvoiceMutation } from "../server/functions";
 
 export function DeleteInvoiceDialog({
   invoice,
@@ -42,15 +43,13 @@ export function DeleteInvoiceDialog({
     try {
       await remove.mutateAsync({ id: invoice.id });
 
-      void client.invalidateQueries(getInvoicesQuery);
+      void invalidateAccountData(client);
 
       toast.success("Invoice deleted");
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not delete invoice. Please try again.",
+        cause instanceof Error ? cause.message : "Could not delete invoice. Please try again.",
       );
     }
   }
@@ -64,17 +63,14 @@ export function DeleteInvoiceDialog({
         setError(null);
       }}
     >
-      <AlertDialogTrigger
-        render={<Button type="button" variant="destructive" disabled={busy} />}
-      >
+      <AlertDialogTrigger render={<Button type="button" variant="destructive" disabled={busy} />}>
         <IconTrash aria-hidden="true" /> Delete
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this invoice?</AlertDialogTitle>
           <AlertDialogDescription className="break-words [overflow-wrap:anywhere]">
-            Are you sure you want to delete "{invoice.name}"? This action cannot
-            be undone.
+            Are you sure you want to delete "{invoice.name}"? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (

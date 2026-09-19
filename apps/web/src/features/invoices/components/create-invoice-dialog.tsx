@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconPlus } from "@tabler/icons-react";
@@ -12,7 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { createInvoiceMutation, getInvoicesQuery } from "../server/functions";
+import { createInvoiceMutation } from "../server/functions";
 import { InvoiceForm, type InvoiceFormValues } from "./invoice-form";
 
 export function CreateInvoiceDialog() {
@@ -23,7 +24,7 @@ export function CreateInvoiceDialog() {
 
   async function handleCreate(values: InvoiceFormValues) {
     await create.mutateAsync(values);
-    void client.invalidateQueries(getInvoicesQuery);
+    void invalidateAccountData(client);
     toast.success("Invoice created");
     setOpen(false);
   }
@@ -48,6 +49,7 @@ export function CreateInvoiceDialog() {
           <InvoiceForm
             mode="create"
             defaultValues={{
+              accountId: "",
               name: "",
               description: "",
               value: "",

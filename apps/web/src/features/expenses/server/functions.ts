@@ -1,3 +1,4 @@
+import { requireOwnedAccount, validateRecordAccount } from "@/features/accounts/server/queries";
 import { authMiddleware } from "@/middleware/auth";
 import { createDb } from "@company-manager/db";
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
@@ -39,7 +40,9 @@ export const createExpense = createServerFn({ method: "POST" })
     }
 
     const db = createDb();
+    await requireOwnedAccount(db, userId, data.accountId);
     await db.insert(expense).values({
+      accountId: data.accountId,
       userId,
       title: data.title,
       value: data.value,
@@ -60,9 +63,16 @@ export const updateExpense = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to edit an expense");
 
-    const [updated] = await createDb()
+    const db = createDb();
+    const existing = await db.query.expense.findFirst({
+      where: and(eq(expense.id, data.id), eq(expense.userId, userId)),
+    });
+    if (!existing) throw new Error("Expense not found or no longer available");
+    await validateRecordAccount(db, userId, data.accountId || null, existing.accountId);
+    const [updated] = await db
       .update(expense)
       .set({
+        accountId: data.accountId || null,
         title: data.title,
         value: data.value,
         createdAt: new Date(`${data.date}T00:00:00.000Z`),

@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -34,7 +35,7 @@ export function EditInvoiceSheet({
         ?.map((item) => (item.id === updated.id ? updated : item))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     );
-    void client.invalidateQueries(getInvoicesQuery);
+    void invalidateAccountData(client);
     toast.success("Invoice updated");
     onClose();
   }
@@ -63,6 +64,7 @@ export function EditInvoiceSheet({
         <InvoiceForm
           mode="edit"
           defaultValues={{
+            accountId: invoice.accountId ?? "",
             name: invoice.name,
             description: invoice.description ?? "",
             value: String(invoice.value),

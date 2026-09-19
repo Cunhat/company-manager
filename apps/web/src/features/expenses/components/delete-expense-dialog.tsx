@@ -1,3 +1,4 @@
+import { invalidateAccountData } from "@/features/accounts/lib/invalidate";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +46,7 @@ export function DeleteExpenseDialog({
       client.setQueryData(getExpensesQuery.queryKey, (expenses) =>
         expenses?.filter((item) => item.id !== expense.id),
       );
-      void client.invalidateQueries(getExpensesQuery);
+      void invalidateAccountData(client);
 
       toast.success("Expense deleted");
       onClose();
