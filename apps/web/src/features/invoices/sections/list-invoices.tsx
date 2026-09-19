@@ -132,12 +132,15 @@ function InvoicesTable({
 
   return (
     <div className="overflow-x-auto" role="region" aria-label="Invoice list" tabIndex={0}>
-      <table className="w-full min-w-[800px] text-left text-sm">
+      <table className="w-full min-w-[960px] text-left text-sm">
         <caption className="sr-only">All invoices, ordered by date, newest first</caption>
         <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="px-5 py-3 font-medium">
               Name
+            </th>
+            <th scope="col" className="px-5 py-3 font-medium">
+              Account
             </th>
             <th
               scope="col"
@@ -202,12 +205,18 @@ function InvoicesTable({
                     {invoice.name}
                     {locked ? " · Locked" : ""}
                   </button>
-                  <p className="mt-1 text-xs font-normal text-muted-foreground">
-                    {invoice.accountId
-                      ? (accountNames.get(invoice.accountId) ?? "Account unavailable")
-                      : "Unassigned"}
-                  </p>
                 </th>
+                <td className="min-w-40 px-5 py-5">
+                  {invoice.accountId ? (
+                    <span className="break-words [overflow-wrap:anywhere]">
+                      {accountNames.get(invoice.accountId) ?? "Account unavailable"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-800 dark:text-amber-300">
+                      Unassigned
+                    </span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-5 py-5 text-muted-foreground tabular-nums">
                   <time dateTime={date.toISOString()}>{dateFormatter.format(date)}</time>
                 </td>
