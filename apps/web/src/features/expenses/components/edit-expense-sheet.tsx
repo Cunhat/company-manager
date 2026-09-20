@@ -34,7 +34,7 @@ export function EditExpenseSheet({
     const updated = await update.mutateAsync({ ...values, id: expense.id });
     client.setQueryData(getExpensesQuery.queryKey, (expenses) =>
       expenses
-        ?.map((item) => (item.id === updated.id ? updated : item))
+        ?.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     );
     void invalidateAccountData(client);

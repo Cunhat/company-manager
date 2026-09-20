@@ -7,3 +7,4 @@ export * from "./per_diem";
 export * from "./account";
 export * from "./transactions";
 export * from "./iva";
+export * from "./payroll";

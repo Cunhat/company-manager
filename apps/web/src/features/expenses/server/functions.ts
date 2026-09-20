@@ -5,8 +5,9 @@ import { createDb } from "@company-manager/db";
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { createExpenseSchema, expenseIdSchema, updateExpenseSchema } from "../schemas/validators";
-import { and, eq } from "@company-manager/db/operators";
+import { and, desc, eq, getTableColumns } from "@company-manager/db/operators";
 import { expense } from "@company-manager/db/schema/expense";
+import { payrollPayment } from "@company-manager/db/schema/payroll";
 import type { z } from "zod";
 
 export const getExpenses = createServerFn({ method: "GET" })
@@ -19,10 +20,12 @@ export const getExpenses = createServerFn({ method: "GET" })
     }
 
     const db = createDb();
-    return db.query.expense.findMany({
-      where: (expense, { eq }) => eq(expense.userId, userId),
-      orderBy: (expense, { desc }) => desc(expense.createdAt),
-    });
+    return db
+      .select({ ...getTableColumns(expense), payrollRecordId: payrollPayment.recordId })
+      .from(expense)
+      .leftJoin(payrollPayment, eq(payrollPayment.expenseId, expense.id))
+      .where(eq(expense.userId, userId))
+      .orderBy(desc(expense.createdAt));
   });
 
 export const getExpensesQuery = queryOptions({
@@ -70,6 +73,7 @@ export const updateExpense = createServerFn({ method: "POST" })
       where: and(eq(expense.id, data.id), eq(expense.userId, userId)),
     });
     if (!existing) throw new Error("Expense not found or no longer available");
+    await requireUnlinkedExpense(db, data.id);
     await Promise.all([
       requireOpenQuarter(db, userId, existing.createdAt),
       requireOpenQuarter(db, userId, data.date),
@@ -104,6 +108,7 @@ export const deleteExpense = createServerFn({ method: "POST" })
       where: and(eq(expense.id, data.id), eq(expense.userId, userId)),
     });
     if (!existing) throw new Error("Record not found or no longer available");
+    await requireUnlinkedExpense(db, data.id);
     await requireOpenQuarter(db, userId, existing.createdAt);
     const [deleted] = await db
       .delete(expense)
@@ -121,3 +126,11 @@ export const updateExpenseMutation = mutationOptions({
 export const deleteExpenseMutation = mutationOptions({
   mutationFn: (data: z.infer<typeof expenseIdSchema>) => deleteExpense({ data }),
 });
+
+async function requireUnlinkedExpense(db: ReturnType<typeof createDb>, expenseId: string) {
+  const payment = await db.query.payrollPayment.findFirst({
+    where: eq(payrollPayment.expenseId, expenseId),
+  });
+  if (payment)
+    throw new Error("This expense is linked to payroll. Edit its payment on the Salary page.");
+}

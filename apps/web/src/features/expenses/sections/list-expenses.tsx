@@ -2,6 +2,7 @@ import { getIvaQuery } from "@/features/iva/server/functions";
 import { periodOf } from "@/features/iva/lib/quarters";
 import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
 import { getAccountsQuery } from "@/features/accounts/server/functions";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { expenseIvaCents } from "@/features/iva/lib/amounts";
@@ -152,7 +153,8 @@ function ExpensesTable({
             const quarter = ivaQuery.data?.find(
               (q) => q.year === period.year && q.quarter === period.quarter,
             );
-            const locked = quarter?.status === "closed";
+            const payrollLinked = Boolean(expense.payrollRecordId);
+            const locked = quarter?.status === "closed" || payrollLinked;
             const unavailable = !ivaQuery.data || ivaQuery.isError;
 
             return (
@@ -169,11 +171,13 @@ function ExpensesTable({
                     type="button"
                     disabled={locked || unavailable}
                     title={
-                      locked
-                        ? "Reopen this quarter on the IVA page to edit"
-                        : unavailable
-                          ? "Quarter status unavailable"
-                          : undefined
+                      payrollLinked
+                        ? "Manage this payment on the Salary page"
+                        : locked
+                          ? "Reopen this quarter on the IVA page to edit"
+                          : unavailable
+                            ? "Quarter status unavailable"
+                            : undefined
                     }
                     aria-label={`Edit expense ${expense.title}`}
                     aria-haspopup="dialog"
@@ -186,6 +190,14 @@ function ExpensesTable({
                     {expense.title}
                     {locked ? " · Locked" : ""}
                   </button>
+                  {payrollLinked ? (
+                    <Link
+                      to="/salary"
+                      className="mt-1 block text-xs font-normal text-primary underline underline-offset-4"
+                    >
+                      Manage salary payment
+                    </Link>
+                  ) : null}
                 </th>
                 <td className="min-w-40 px-5 py-5">
                   {expense.accountId ? (

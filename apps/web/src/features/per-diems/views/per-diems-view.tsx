@@ -1,3 +1,4 @@
+import { PayrollLockNotice, usePayrollLock } from "@/features/salary/components/month-lock";
 import { useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -49,6 +50,8 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const client = useQueryClient();
+  const payrollLock = usePayrollLock(userId, month);
+  const travelLocked = payrollLock.closed || payrollLock.unavailable;
   const allowances = useQuery(getPerDiemsQuery(userId, month));
   const journeys = useQuery(getPerDiemJourneysQuery(userId, month));
   const create = useMutation(createPerDiemsMutation);
@@ -62,7 +65,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
   const availableJourneys = (journeys.data ?? []).filter(
     (item) => !tripHasClaimedDays(item, claimedDates),
   );
-  const canAdd = sourceReady && availableJourneys.length > 0 && !busy;
+  const canAdd = sourceReady && availableJourneys.length > 0 && !busy && !travelLocked;
 
   function cacheSaved(saved: PerDiem[], removedId?: string) {
     // Invalidate every month for this user: trips and date edits can cross month boundaries.
@@ -82,6 +85,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
       );
     }
     void client.invalidateQueries({ queryKey: ["per-diems", userId] });
+    void client.invalidateQueries({ queryKey: ["salary-travel", userId] });
   }
   async function handleCreate(values: CreatePerDiem) {
     const saved = await create.mutateAsync(values);
@@ -109,7 +113,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
     }
   }
   function addPerDiems(id = availableJourneys[0]?.id) {
-    if (id) setSourceId(id);
+    if (id && !travelLocked) setSourceId(id);
   }
 
   return (
@@ -121,6 +125,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
           Add per diems
         </Button>
       </div>
+      <PayrollLockNotice userId={userId} month={month} />
       <Tabs value={tab} onValueChange={setTab} className="flex min-w-0 flex-col gap-6">
         <TabsList aria-label="Per diem sections">
           <TabsTrigger value="maps">Monthly maps</TabsTrigger>
@@ -207,7 +212,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
               entries={entries}
               ready={ready}
               canAdd={canAdd}
-              busy={busy}
+              busy={busy || travelLocked}
               onAdd={() => addPerDiems()}
               onEdit={setEditing}
               onRemove={(entry) => {
@@ -239,6 +244,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
               journeys={journeys.data ?? []}
               claimedDates={claimedDates}
               ready={sourceReady}
+              disabled={travelLocked}
               onUse={addPerDiems}
             />
           )}

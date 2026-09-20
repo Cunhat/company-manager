@@ -13,6 +13,7 @@ import {
   monthSchema,
 } from "../schemas/validators";
 import { journeyMonthRange, journeysFromPath } from "../lib/journeys";
+import { requireOpenPayrollMonths } from "@/features/salary/server/guard";
 
 export const getKmsPaths = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -94,6 +95,7 @@ export const createKmsTrip = createServerFn({ method: "POST" })
       where: (path, { and, eq }) => and(eq(path.id, data.pathId), eq(path.userId, userId)),
     });
     if (!path) throw new Error("Path not found or no longer available");
+    await requireOpenPayrollMonths(db, userId, [data.departureDate, data.returnDate]);
 
     // A single insert saves both legs atomically, using the owner's saved path.
     return db
@@ -113,7 +115,13 @@ export const deleteKmsJourney = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to remove a journey");
 
-    const [deleted] = await createDb()
+    const db = createDb();
+    const existing = await db.query.journey.findFirst({
+      where: and(eq(journey.id, data.id), eq(journey.userId, userId)),
+    });
+    if (!existing) throw new Error("Journey not found or no longer available");
+    await requireOpenPayrollMonths(db, userId, [existing.date]);
+    const [deleted] = await db
       .delete(journey)
       .where(and(eq(journey.id, data.id), eq(journey.userId, userId)))
       .returning();

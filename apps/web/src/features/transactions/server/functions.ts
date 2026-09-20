@@ -1,7 +1,8 @@
 import { authMiddleware } from "@/middleware/auth";
 import { createDb } from "@company-manager/db";
-import { and, eq } from "@company-manager/db/operators";
+import { and, desc, eq, getTableColumns } from "@company-manager/db/operators";
 import { transaction } from "@company-manager/db/schema/transactions";
+import { payrollPayment } from "@company-manager/db/schema/payroll";
 import { createServerFn } from "@tanstack/react-start";
 import { mutationOptions, queryOptions } from "@tanstack/react-query";
 import type { z } from "zod";
@@ -17,10 +18,12 @@ export const getTransactions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to view transactions");
-    return createDb().query.transaction.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
-      orderBy: (table, { desc }) => [desc(table.createdAt), desc(table.id)],
-    });
+    return createDb()
+      .select({ ...getTableColumns(transaction), payrollRecordId: payrollPayment.recordId })
+      .from(transaction)
+      .leftJoin(payrollPayment, eq(payrollPayment.transactionId, transaction.id))
+      .where(eq(transaction.userId, userId))
+      .orderBy(desc(transaction.createdAt), desc(transaction.id));
   });
 export const getTransactionsQuery = queryOptions({
   queryKey: ["transactions"],
@@ -32,8 +35,7 @@ export const createTransaction = createServerFn({ method: "POST" })
   .validator(createTransactionSchema)
   .handler(async ({ context, data }) => {
     const userId = context.session?.user.id;
-    if (!userId)
-      throw new Error("You must be signed in to create a transaction");
+    if (!userId) throw new Error("You must be signed in to create a transaction");
     const db = createDb();
     await requireOwnedAccount(db, userId, data.accountId);
     const { date, ...values } = data;
@@ -55,6 +57,7 @@ export const updateTransaction = createServerFn({ method: "POST" })
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to edit a transaction");
     const db = createDb();
+    await requireUnlinkedTransaction(db, userId, data.id);
     await requireOwnedAccount(db, userId, data.accountId);
     const { id, date, ...values } = data;
     const [updated] = await db
@@ -66,8 +69,7 @@ export const updateTransaction = createServerFn({ method: "POST" })
       })
       .where(and(eq(transaction.id, id), eq(transaction.userId, userId)))
       .returning();
-    if (!updated)
-      throw new Error("Transaction not found or no longer available");
+    if (!updated) throw new Error("Transaction not found or no longer available");
     return updated;
   });
 
@@ -76,26 +78,37 @@ export const deleteTransaction = createServerFn({ method: "POST" })
   .validator(transactionIdSchema)
   .handler(async ({ context, data }) => {
     const userId = context.session?.user.id;
-    if (!userId)
-      throw new Error("You must be signed in to delete a transaction");
-    const [deleted] = await createDb()
+    if (!userId) throw new Error("You must be signed in to delete a transaction");
+    const db = createDb();
+    await requireUnlinkedTransaction(db, userId, data.id);
+    const [deleted] = await db
       .delete(transaction)
       .where(and(eq(transaction.id, data.id), eq(transaction.userId, userId)))
       .returning({ id: transaction.id });
-    if (!deleted)
-      throw new Error("Transaction not found or no longer available");
+    if (!deleted) throw new Error("Transaction not found or no longer available");
     return deleted;
   });
 
 export const createTransactionMutation = mutationOptions({
-  mutationFn: (data: z.infer<typeof createTransactionSchema>) =>
-    createTransaction({ data }),
+  mutationFn: (data: z.infer<typeof createTransactionSchema>) => createTransaction({ data }),
 });
 export const updateTransactionMutation = mutationOptions({
-  mutationFn: (data: z.infer<typeof updateTransactionSchema>) =>
-    updateTransaction({ data }),
+  mutationFn: (data: z.infer<typeof updateTransactionSchema>) => updateTransaction({ data }),
 });
 export const deleteTransactionMutation = mutationOptions({
-  mutationFn: (data: z.infer<typeof transactionIdSchema>) =>
-    deleteTransaction({ data }),
+  mutationFn: (data: z.infer<typeof transactionIdSchema>) => deleteTransaction({ data }),
 });
+
+async function requireUnlinkedTransaction(
+  db: ReturnType<typeof createDb>,
+  userId: string,
+  id: string,
+) {
+  const [payment] = await db
+    .select({ id: payrollPayment.id })
+    .from(payrollPayment)
+    .innerJoin(transaction, eq(transaction.id, payrollPayment.transactionId))
+    .where(and(eq(transaction.id, id), eq(transaction.userId, userId)));
+  if (payment)
+    throw new Error("This transaction is linked to payroll. Edit its payment on the Salary page.");
+}

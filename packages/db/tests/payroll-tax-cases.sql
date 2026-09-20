@@ -1,0 +1,46 @@
+DO $$
+DECLARE fixture payroll_tax_fixture; r payroll_record; ss_id uuid; irs_id uuid; settings jsonb; fresh_id uuid;
+BEGIN
+  SELECT * INTO fixture FROM payroll_tax_fixture;
+  SELECT * INTO r FROM payroll_record WHERE id = fixture.record_id;
+  ASSERT (SELECT count(*) FROM expense WHERE user_id = 'tax-owner') = 2, 'Legacy tax expenses were not removed';
+  ASSERT EXISTS (SELECT 1 FROM expense WHERE id = fixture.salary_expense_id AND value = 755 AND created_at = '2026-10-01'), 'Salary expense was changed';
+  ASSERT EXISTS (SELECT 1 FROM expense WHERE user_id = 'tax-owner' AND title = 'Supplier' AND value = 123 AND iva), 'Supplier expense was changed';
+  ASSERT (SELECT count(*) FROM "transaction" WHERE user_id = 'tax-owner') = 3, 'Migration duplicated transactions';
+  ASSERT (SELECT count(*) FROM payroll_payment WHERE record_id = fixture.record_id) = 3, 'Migration lost payment status';
+  SELECT transaction_id INTO ss_id FROM payroll_payment WHERE record_id = fixture.record_id AND kind = 'ss';
+  SELECT transaction_id INTO irs_id FROM payroll_payment WHERE record_id = fixture.record_id AND kind = 'irs';
+  ASSERT EXISTS (SELECT 1 FROM "transaction" WHERE id = ss_id AND value = 347.5 AND type = 'expense' AND account_id = fixture.account_id AND created_at = '2026-10-20'), 'SS migration lost details';
+  ASSERT EXISTS (SELECT 1 FROM "transaction" WHERE id = irs_id AND value = 135 AND type = 'expense' AND account_id = fixture.account_id AND created_at = '2026-10-21'), 'IRS migration lost details';
+  ASSERT (SELECT tgenabled = 'O' FROM pg_trigger WHERE tgname = 'expense_iva_guard' AND tgrelid = 'expense'::regclass), 'IVA guard not restored';
+  ASSERT (SELECT status FROM iva_quarter WHERE user_id = 'tax-owner' AND quarter = 4) = 'closed', 'Quarter reopened during migration';
+  BEGIN UPDATE "transaction" SET value = 1 WHERE id = ss_id; RAISE EXCEPTION 'FAIL direct tax edit'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This transaction is linked%', SQLERRM; END;
+  BEGIN DELETE FROM "transaction" WHERE id = irs_id; RAISE EXCEPTION 'FAIL direct tax delete'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This transaction is linked%', SQLERRM; END;
+  BEGIN PERFORM payroll_unpay('salary-other', fixture.record_id, 'irs'); RAISE EXCEPTION 'FAIL foreign undo'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Payroll record not found', SQLERRM; END;
+  -- Tax transactions can be corrected independently of IVA quarter status.
+  PERFORM payroll_unpay('tax-owner', fixture.record_id, 'irs');
+  ASSERT NOT EXISTS (SELECT 1 FROM "transaction" WHERE id = irs_id), 'Undo did not remove tax transaction';
+  PERFORM payroll_pay('tax-owner', fixture.record_id, 'irs', '2026-10-22', fixture.account_id, 1);
+  PERFORM payroll_pay('tax-owner', fixture.record_id, 'irs', '2026-10-22', fixture.account_id, 1);
+  ASSERT (SELECT count(*) FROM "transaction" WHERE user_id = 'tax-owner') = 3, 'Duplicate tax payment';
+  ASSERT (SELECT count(*) FROM expense WHERE user_id = 'tax-owner') = 2, 'New tax payment created expense';
+  BEGIN PERFORM payroll_unpay('tax-owner', fixture.record_id, 'salary'); RAISE EXCEPTION 'FAIL salary IVA guard'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed%', SQLERRM; END;
+  settings := '{"grossCents":200000,"mealCents":0,"ssRate":1100,"tsuRate":2375,"irsRate":1350,"irsOverrideCents":null}';
+  BEGIN PERFORM payroll_apply('tax-owner', fixture.record_id, 1, settings); RAISE EXCEPTION 'FAIL atomic apply'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'This quarter is closed%', SQLERRM; END;
+  ASSERT (SELECT revision FROM payroll_record WHERE id = fixture.record_id) = 1, 'Failed apply changed payroll';
+  ASSERT (SELECT value FROM "transaction" WHERE id = ss_id) = 347.5, 'Failed apply changed taxes';
+  UPDATE iva_quarter SET status = 'open' WHERE user_id = 'tax-owner';
+  PERFORM payroll_apply('tax-owner', fixture.record_id, 1, settings);
+  ASSERT (SELECT value FROM expense WHERE id = fixture.salary_expense_id) = 1510, 'Apply did not update salary expense';
+  ASSERT (SELECT value FROM "transaction" WHERE id = ss_id) = 695, 'Apply did not update SS transaction';
+  ASSERT EXISTS (SELECT 1 FROM payroll_payment p JOIN "transaction" t ON p.transaction_id = t.id WHERE p.record_id = fixture.record_id AND p.kind = 'irs' AND t.value = 270 AND t.created_at = '2026-10-22'), 'Apply did not preserve IRS date/amount';
+  ASSERT (SELECT sum(coalesce(e.value, t.value)) * 100 FROM payroll_payment p LEFT JOIN expense e ON e.id = p.expense_id LEFT JOIN "transaction" t ON t.id = p.transaction_id WHERE p.record_id = fixture.record_id) = (SELECT company_cents FROM payroll_record WHERE id = fixture.record_id), 'Outflow double counted';
+  fresh_id := payroll_generate('tax-owner', '2026-12', 'christmas', settings, '{"perDiemCents":0,"mileageCents":0}');
+  PERFORM payroll_pay('tax-owner', fresh_id, 'ss', '2026-12-20', fixture.account_id, 1);
+  PERFORM payroll_pay('tax-owner', fresh_id, 'irs', '2026-12-20', fixture.account_id, 1);
+  ASSERT (SELECT count(*) FROM payroll_payment WHERE record_id = fresh_id AND transaction_id IS NOT NULL AND expense_id IS NULL) = 2, 'Bonus taxes not transactions';
+  DELETE FROM financial_account WHERE id = fixture.account_id;
+  ASSERT NOT EXISTS (SELECT 1 FROM "transaction" WHERE user_id = 'tax-owner'), 'Account deletion did not cascade';
+  ASSERT (SELECT count(*) FROM payroll_payment WHERE record_id = fixture.record_id) = 1, 'Deleted tax transactions left payment links';
+  ASSERT EXISTS (SELECT 1 FROM expense WHERE id = fixture.salary_expense_id AND account_id IS NULL), 'Account deletion lost salary expense';
+END $$;

@@ -7,11 +7,13 @@ export function MileageJourneys({
   journeys,
   claimedDates,
   ready,
+  disabled = false,
   onUse,
 }: {
   journeys: PerDiemJourney[];
   claimedDates: Set<string>;
   ready: boolean;
+  disabled?: boolean;
   onUse: (id: string) => void;
 }) {
   return (
@@ -95,7 +97,12 @@ export function MileageJourneys({
                           Trip has covered days
                         </span>
                       ) : (
-                        <Button variant="outline" size="sm" onClick={() => onUse(journey.id)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={disabled}
+                          onClick={() => onUse(journey.id)}
+                        >
                           Use trip
                         </Button>
                       )}

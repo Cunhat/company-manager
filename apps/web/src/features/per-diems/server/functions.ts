@@ -9,6 +9,7 @@ import dayjs from "@/features/kms/lib/dates";
 import { monthSchema } from "@/features/kms/schemas/validators";
 import { createPerDiemSchema, perDiemIdSchema, updatePerDiemSchema } from "../schemas/validators";
 import { pairMileageJourneys, perDiemsFromJourney } from "../lib/allowances";
+import { requireOpenPayrollMonths } from "@/features/salary/server/guard";
 
 export const getPerDiems = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -62,6 +63,11 @@ export const createPerDiems = createServerFn({ method: "POST" })
         })
       : undefined;
     const rows = perDiemsFromJourney(data, source, userId, returning);
+    await requireOpenPayrollMonths(
+      db,
+      userId,
+      rows.map((row) => row.date),
+    );
     try {
       // One atomic insert: conflicting dates reject the entire trip, including across months.
       return await db.insert(perDiem).values(rows).returning();
@@ -80,9 +86,15 @@ export const updatePerDiem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to edit per diems");
+    const db = createDb();
+    const existing = await db.query.perDiem.findFirst({
+      where: and(eq(perDiem.id, data.id), eq(perDiem.userId, userId)),
+    });
+    if (!existing) throw new Error("Per diem not found or no longer available");
+    await requireOpenPayrollMonths(db, userId, [existing.date, data.date]);
     let updated;
     try {
-      [updated] = await createDb()
+      [updated] = await db
         .update(perDiem)
         .set({
           date: data.date,
@@ -115,7 +127,13 @@ export const deletePerDiem = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to remove per diems");
-    const [deleted] = await createDb()
+    const db = createDb();
+    const existing = await db.query.perDiem.findFirst({
+      where: and(eq(perDiem.id, data.id), eq(perDiem.userId, userId)),
+    });
+    if (!existing) throw new Error("Per diem not found or no longer available");
+    await requireOpenPayrollMonths(db, userId, [existing.date]);
+    const [deleted] = await db
       .delete(perDiem)
       .where(and(eq(perDiem.id, data.id), eq(perDiem.userId, userId)))
       .returning();
