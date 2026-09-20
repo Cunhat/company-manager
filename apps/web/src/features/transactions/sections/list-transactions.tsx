@@ -1,12 +1,10 @@
 import { useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { IconArrowsExchange } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { getAccountsQuery } from "@/features/accounts/server/functions";
-import {
-  AccountFilter,
-  matchesAccount,
-} from "@/features/accounts/components/account-filter";
+import { AccountFilter, matchesAccount } from "@/features/accounts/components/account-filter";
 import { dateFormatter, moneyFormatter } from "@/features/accounts/lib/format";
 import { getTransactionsQuery } from "../server/functions";
 import { EditTransactionSheet } from "../components/edit-transaction-sheet";
@@ -18,17 +16,11 @@ export default function ListTransactions() {
 
   const returnFocus = useRef<HTMLElement | null>(null);
 
-  const {
-    data: transactions,
-    isError,
-    refetch,
-  } = useSuspenseQuery(getTransactionsQuery);
+  const { data: transactions, isError, refetch } = useSuspenseQuery(getTransactionsQuery);
   const { data: accounts } = useSuspenseQuery(getAccountsQuery);
 
   const visible = transactions.filter((item) => matchesAccount(item, filter));
-  const accountNames = new Map(
-    accounts.map((account) => [account.id, account.name]),
-  );
+  const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
 
   return (
     <section
@@ -47,39 +39,29 @@ export default function ListTransactions() {
         </div>
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center px-6 py-16 text-center">
-          <IconArrowsExchange
-            className="mb-4 size-8 text-primary"
-            aria-hidden="true"
-          />
+          <IconArrowsExchange className="mb-4 size-8 text-primary" aria-hidden="true" />
           <h3 className="font-semibold">
             No transactions {filter === "all" ? "yet" : "for this account"}
           </h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Record other money movements here. Invoices and expenses already
-            contribute to your balances separately.
+            Record other money movements here. Invoices and expenses already contribute to your
+            balances separately.
           </p>
         </div>
       ) : (
-        <div
-          className="overflow-x-auto"
-          role="region"
-          aria-label="Transaction list"
-          tabIndex={0}
-        >
+        <div className="overflow-x-auto" role="region" aria-label="Transaction list" tabIndex={0}>
           <table className="w-full min-w-[600px] text-left text-sm">
             <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
               <tr>
-                {["Description", "Account", "Date", "Type", "Amount"].map(
-                  (label) => (
-                    <th
-                      key={label}
-                      scope="col"
-                      className={`px-5 py-3 font-medium ${label === "Amount" ? "text-right" : ""}`}
-                    >
-                      {label}
-                    </th>
-                  ),
-                )}
+                {["Description", "Account", "Date", "Type", "Amount"].map((label) => (
+                  <th
+                    key={label}
+                    scope="col"
+                    className={`px-5 py-3 font-medium ${label === "Amount" ? "text-right" : ""}`}
+                  >
+                    {label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -88,6 +70,10 @@ export default function ListTransactions() {
                   <th scope="row" className="px-5 py-5 font-medium">
                     <button
                       type="button"
+                      disabled={Boolean(item.payrollRecordId)}
+                      title={
+                        item.payrollRecordId ? "Manage this payment on the Salary page" : undefined
+                      }
                       className="max-w-md cursor-pointer rounded-sm text-left break-words underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                       aria-label={`Edit transaction ${item.description || item.type}`}
                       aria-haspopup="dialog"
@@ -96,9 +82,16 @@ export default function ListTransactions() {
                         setSelected(item);
                       }}
                     >
-                      {item.description ||
-                        (item.type === "income" ? "Income" : "Expense")}
+                      {item.description || (item.type === "income" ? "Income" : "Expense")}
                     </button>
+                    {item.payrollRecordId ? (
+                      <Link
+                        to="/salary"
+                        className="mt-1 block text-xs font-normal text-primary underline underline-offset-4"
+                      >
+                        Manage salary tax payment
+                      </Link>
+                    ) : null}
                   </th>
                   <td className="px-5 py-5">
                     {accountNames.get(item.accountId) ?? "Account unavailable"}

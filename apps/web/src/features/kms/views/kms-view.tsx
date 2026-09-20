@@ -1,3 +1,4 @@
+import { PayrollLockNotice, usePayrollLock } from "@/features/salary/components/month-lock";
 import { useState, type ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
@@ -37,6 +38,8 @@ export function KmsWorkspace({ userId }: { userId: string }) {
 
   const client = useQueryClient();
 
+  const payrollLock = usePayrollLock(userId, month);
+  const travelLocked = payrollLock.closed || payrollLock.unavailable;
   const journeys = useQuery(getKmsJourneysQuery(userId, month));
 
   const createTrip = useMutation(createKmsTripMutation);
@@ -49,9 +52,10 @@ export function KmsWorkspace({ userId }: { userId: string }) {
   const entries = entriesForMonth(journeys.data ?? [], month);
   const totalKm = entries.reduce((sum, entry) => sum + entry.distance, 0);
   const totalCents = entries.reduce((sum, entry) => sum + entry.amountCents, 0);
-  const canAdd = paths.length > 0;
+  const canAdd = paths.length > 0 && !travelLocked;
 
   function addTrip(pathId = paths[0]?.id ?? "") {
+    if (travelLocked) return;
     setTab("maps");
     setTripPathId(pathId);
   }
@@ -91,6 +95,7 @@ export function KmsWorkspace({ userId }: { userId: string }) {
       previous?.filter((item) => item.id !== deleted.id),
     );
     void client.invalidateQueries({ queryKey: ["kms-journeys", userId] });
+    void client.invalidateQueries({ queryKey: ["salary-travel", userId] });
     toast.success("Journey removed");
   }
 
@@ -128,6 +133,7 @@ export function KmsWorkspace({ userId }: { userId: string }) {
       void client.invalidateQueries({ queryKey: ["kms-journeys", userId] });
     }
     setMonth(dayjs(trip.departureDate).format("YYYY-MM"));
+    void client.invalidateQueries({ queryKey: ["salary-travel", userId] });
     toast.success("Trip added", {
       description: "Outward and return journeys saved.",
     });
@@ -169,6 +175,7 @@ export function KmsWorkspace({ userId }: { userId: string }) {
           </Button>
         </div>
       </div>
+      <PayrollLockNotice userId={userId} month={month} />
       <Tabs value={tab} onValueChange={setTab} className="flex min-w-0 flex-col gap-6">
         <TabsList aria-label="Mileage sections">
           <TabsTrigger value="maps">Monthly maps</TabsTrigger>
@@ -257,13 +264,13 @@ export function KmsWorkspace({ userId }: { userId: string }) {
               ready={ready}
               canAdd={canAdd}
               onAdd={handleAddTrip}
-              removing={deleteJourney.isPending}
+              removing={deleteJourney.isPending || travelLocked}
               onRemove={handleRemoveJourney}
             />
           )}
         </TabsContent>
         <TabsContent value="paths" className="min-w-0">
-          <PathsList paths={paths} disabled={false} onUse={addTrip} />
+          <PathsList paths={paths} disabled={travelLocked} onUse={addTrip} />
         </TabsContent>
       </Tabs>
       {tripPathId !== null ? (

@@ -8,6 +8,7 @@ export async function invalidateAccountData(client: QueryClient) {
       "quarterly-metrics",
       "accounts",
       "transactions",
+      "salary",
       "invoices",
       "expenses",
       "yearly-invoices-and-expenses",

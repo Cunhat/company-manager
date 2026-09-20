@@ -136,6 +136,11 @@ const data = {
       url: "/invoices",
       icon: <IconFileInvoiceFilled />,
     },
+    {
+      name: "Salary",
+      url: "/salary",
+      icon: <IconCalendarDollar />,
+    },
     { name: "IVA", url: "/iva", icon: <IconCalendarDollar /> },
     {
       name: "Expenses",
