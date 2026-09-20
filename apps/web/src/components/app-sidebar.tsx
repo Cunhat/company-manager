@@ -13,15 +13,19 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import {
-  IconLayoutRows,
-  IconLayoutDashboardFilled,
-  IconReceiptEuroFilled,
-  IconFileInvoiceFilled,
-  IconRoute,
-  IconCalendarDollar,
-  IconBuildingBank,
   IconArrowsExchange,
+  IconBuildingBank,
+  IconCarFilled,
+  IconCashBanknoteFilled,
+  IconCirclePercentageFilled,
+  IconCreditCardFilled,
+  IconFileInvoiceFilled,
+  IconLayoutDashboardFilled,
+  IconLayoutRows,
+  IconReceiptEuroFilled,
+  IconRoute,
 } from "@tabler/icons-react";
+import { NavDocuments } from "./nav-documents";
 
 const data = {
   team: {
@@ -121,41 +125,51 @@ const data = {
       url: "/",
       icon: <IconLayoutDashboardFilled />,
     },
+  ],
+  finance: [
     {
       name: "Accounts",
       url: "/accounts",
-      icon: <IconBuildingBank />,
+      icon: IconBuildingBank,
     },
     {
       name: "Transactions",
       url: "/transactions",
-      icon: <IconArrowsExchange />,
+      icon: IconArrowsExchange,
     },
     {
       name: "Invoices",
       url: "/invoices",
-      icon: <IconFileInvoiceFilled />,
+      icon: IconFileInvoiceFilled,
     },
-    {
-      name: "Salary",
-      url: "/salary",
-      icon: <IconCalendarDollar />,
-    },
-    { name: "IVA", url: "/iva", icon: <IconCalendarDollar /> },
     {
       name: "Expenses",
       url: "/expenses",
-      icon: <IconReceiptEuroFilled />,
+      icon: IconReceiptEuroFilled,
+    },
+  ],
+  employee: [
+    {
+      name: "Salary",
+      url: "/salary",
+      icon: IconCashBanknoteFilled,
     },
     {
       name: "Mileage",
       url: "/kms",
-      icon: <IconRoute />,
+      icon: IconCarFilled,
     },
     {
       name: "Per diems",
       url: "/per-diems",
-      icon: <IconCalendarDollar />,
+      icon: IconCreditCardFilled,
+    },
+  ],
+  taxes: [
+    {
+      name: "IVA",
+      url: "/iva",
+      icon: IconCirclePercentageFilled,
     },
   ],
 };
@@ -166,9 +180,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <TeamSwitcher name={data.team.name} logo={data.team.logo} />
       </SidebarHeader>
-      <SidebarContent>
-        {/* <NavMain items={data.navMain} /> */}
+      <SidebarContent className="gap-0">
         <NavProjects projects={data.projects} />
+        <NavDocuments name="Finance" items={data.finance} />
+        <NavDocuments name="Employee" items={data.employee} />
+        <NavDocuments name="Taxes" items={data.taxes} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
