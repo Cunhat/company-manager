@@ -1,9 +1,8 @@
 import { getIvaQuery } from "@/features/iva/server/functions";
 import { IconCalendarWeekFilled, IconClockFilled } from "@tabler/icons-react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
 import { ArrowUpRight, Clock3 } from "lucide-react";
-import { getNextIvaDeadline } from "../lib/next-iva-payment";
+import { getNextIvaPayment } from "../lib/next-iva-payment";
 
 const money = new Intl.NumberFormat("en-IE", {
   style: "currency",
@@ -12,13 +11,8 @@ const money = new Intl.NumberFormat("en-IE", {
 export default function NextIvaPayment() {
   const { data: ledger } = useSuspenseQuery(getIvaQuery);
 
-  const now = dayjs.utc().toDate();
-  const deadline = now ? getNextIvaDeadline(now) : null;
-
-  const period = ledger.find(
-    (q) => q.year === deadline?.taxYear && `Q${q.quarter}` === deadline.quarter,
-  );
-  const amount = period ? period.payableCents / 100 : 0;
+  const { deadline, payableCents } = getNextIvaPayment(ledger);
+  const amount = payableCents / 100;
 
   return (
     <section
@@ -45,11 +39,7 @@ export default function NextIvaPayment() {
           {amount === null ? "—" : money.format(Math.max(0, amount))}
         </p>
         <p className="mt-3 text-sm text-stone-700">
-          {period?.status === "closed"
-            ? period.payableCents > 0
-              ? "Quarter closed. Payment recorded."
-              : "Quarter closed. No payment due."
-            : "Includes unused deductions from the previous quarter."}{" "}
+          Includes unused deductions from the previous quarter.{" "}
           <a href="/iva" className="font-medium underline underline-offset-4">
             View IVA
           </a>

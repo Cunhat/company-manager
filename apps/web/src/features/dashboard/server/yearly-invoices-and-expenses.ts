@@ -3,6 +3,11 @@ import { createDb } from "@company-manager/db";
 import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const getYearlyInvoicesAndExpenses = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -15,9 +20,9 @@ export const getYearlyInvoicesAndExpenses = createServerFn({ method: "GET" })
 
     const db = createDb();
 
-    const today = dayjs();
-    const startOfYear = today.startOf("year").toDate();
-    const startOfNextYear = today.add(1, "year").startOf("year").toDate();
+    const year = dayjs().tz("Europe/Lisbon").year();
+    const startOfYear = dayjs.utc(`${year}-01-01`).toDate();
+    const startOfNextYear = dayjs.utc(`${year + 1}-01-01`).toDate();
 
     const invoicesQuery = db.query.invoice.findMany({
       where: (invoice, { eq, ne, and, gte, lt }) =>
@@ -48,6 +53,6 @@ export const getYearlyInvoicesAndExpenses = createServerFn({ method: "GET" })
 
 export const getYearlyInvoicesAndExpensesQuery = () =>
   queryOptions({
-    queryKey: ["yearly-invoices-and-expenses"],
+    queryKey: ["yearly-invoices-and-expenses", dayjs().tz("Europe/Lisbon").year()],
     queryFn: getYearlyInvoicesAndExpenses,
   });
