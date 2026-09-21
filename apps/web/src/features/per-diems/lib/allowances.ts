@@ -6,6 +6,13 @@ import { createPerDiemSchema } from "../schemas/validators";
 
 // Manager reference rates checked September 2026. Each saved day retains its own rate.
 export const MANAGER_RATES = { portugal: "72.65", abroad: "167.07" } as const;
+export const PER_DIEM_DISTANCE_MESSAGE =
+  "Per diems require more than 20 km for each mileage journey, including the return journey.";
+
+export function tripMeetsPerDiemDistance(trip: PerDiemJourney) {
+  return trip.distance > 20 && (!trip.returnJourney || trip.returnJourney.distance > 20);
+}
+
 export const TYPE_LABELS = {
   daily: "Daily",
   departure: "Multi-day · departure",
@@ -98,6 +105,9 @@ export function perDiemsFromJourney(
   }
   if (dayjs.utc(source.date).format("YYYY-MM-DD") !== input.departureDate) {
     throw new Error("The departure date must match the selected mileage journey");
+  }
+  if (!tripMeetsPerDiemDistance({ ...source, returnJourney: returning })) {
+    throw new Error(PER_DIEM_DISTANCE_MESSAGE);
   }
   return allowanceDays({ ...input, origin: source.origin }).map((day) => ({
     ...day,

@@ -50,6 +50,7 @@ Object.defineProperty(globalThis, "cancelAnimationFrame", {
 const { act, cleanup, fireEvent, render, screen, waitFor } = await import("@testing-library/react");
 const { AddPerDiemDialog } = await import("./add-per-diem-dialog");
 const { EditPerDiemSheet } = await import("./edit-per-diem-sheet");
+const { MileageJourneys } = await import("../sections/mileage-journeys");
 afterEach(async () => {
   await act(async () => {
     cleanup();
@@ -88,6 +89,49 @@ const entry: PerDiem = {
 };
 
 describe("per diem forms", () => {
+  it("does not offer short journeys for processing in the mileage list", () => {
+    let selected: string | undefined;
+    render(
+      <MileageJourneys
+        journeys={[
+          { ...source, id: "short", distance: 15 },
+          { ...source, id: "boundary", distance: 20 },
+          { ...source, id: "short-return", returnJourney: { ...source, distance: 15 } },
+          source,
+        ]}
+        claimedDates={new Set()}
+        ready
+        onUse={(id) => {
+          selected = id;
+        }}
+      />,
+    );
+    assert.equal(screen.getAllByText("Not eligible: journey must exceed 20 km").length, 3);
+    assert.equal(screen.getAllByRole("button", { name: "Use trip" }).length, 1);
+    fireEvent.click(screen.getByRole("button", { name: "Use trip" }));
+    assert.equal(selected, source.id);
+  });
+
+  it("blocks an ineligible journey even when it is already selected in the dialog", async () => {
+    render(
+      <AddPerDiemDialog
+        journeys={[{ ...source, distance: 20 }]}
+        initialJourneyId={source.id}
+        month="2026-08"
+        onAdd={async () => {
+          assert.fail("An ineligible journey must not be submitted");
+        }}
+        onClose={() => {}}
+      />,
+    );
+    assert.match(screen.getByRole("alert").textContent ?? "", /require more than 20 km/);
+    assert.equal(screen.queryByRole("button", { name: "Save per diems" }), null);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Mileage journey"));
+    });
+    assert.equal(screen.queryByRole("option"), null);
+  });
+
   it("switches to the foreign manager rate and lets the user reduce the allowance for a paid hotel", async () => {
     render(
       <AddPerDiemDialog

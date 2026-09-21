@@ -20,7 +20,12 @@ import dayjs from "@/features/kms/lib/dates";
 import { formatAmount, formatTravelDate } from "@/features/kms/lib/maps";
 
 import { monthSchema } from "@/features/kms/schemas/validators";
-import { allowanceCents, perDiemsForMonth, tripHasClaimedDays } from "../lib/allowances";
+import {
+  allowanceCents,
+  perDiemsForMonth,
+  tripHasClaimedDays,
+  tripMeetsPerDiemDistance,
+} from "../lib/allowances";
 import {
   createPerDiemsMutation,
   deletePerDiemMutation,
@@ -63,7 +68,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
   const busy = create.isPending || update.isPending || remove.isPending;
   const claimedDates = new Set(entries.map((entry) => entry.date));
   const availableJourneys = (journeys.data ?? []).filter(
-    (item) => !tripHasClaimedDays(item, claimedDates),
+    (item) => tripMeetsPerDiemDistance(item) && !tripHasClaimedDays(item, claimedDates),
   );
   const canAdd = sourceReady && availableJourneys.length > 0 && !busy && !travelLocked;
 
@@ -113,7 +118,7 @@ export function PerDiemsWorkspace({ userId }: { userId: string }) {
     }
   }
   function addPerDiems(id = availableJourneys[0]?.id) {
-    if (id && !travelLocked) setSourceId(id);
+    if (id && canAdd && availableJourneys.some((journey) => journey.id === id)) setSourceId(id);
   }
 
   return (

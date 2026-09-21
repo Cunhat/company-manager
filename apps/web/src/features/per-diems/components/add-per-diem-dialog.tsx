@@ -26,6 +26,8 @@ import {
   allowanceCents,
   allowanceDays,
   MANAGER_RATES,
+  PER_DIEM_DISTANCE_MESSAGE,
+  tripMeetsPerDiemDistance,
   TYPE_LABELS,
   valuesFromJourney,
 } from "../lib/allowances";
@@ -48,7 +50,7 @@ export function AddPerDiemDialog({
   const [sourceId, setSourceId] = useState(initialJourneyId);
   const [pending, setPending] = useState(false);
   const source = journeys.find((item) => item.id === sourceId);
-  const items = journeys.map((item) => ({
+  const items = journeys.filter(tripMeetsPerDiemDistance).map((item) => ({
     value: item.id,
     label: `${dayjs.utc(item.date).format("DD MMM")} · ${item.origin} → ${item.destination} · ${item.distance} km`,
   }));
@@ -91,7 +93,11 @@ export function AddPerDiemDialog({
             </SelectContent>
           </Select>
         </Field>
-        {source ? (
+        {source && !tripMeetsPerDiemDistance(source) ? (
+          <p role="alert" className="text-sm text-destructive">
+            {PER_DIEM_DISTANCE_MESSAGE}
+          </p>
+        ) : source ? (
           <CreateAllowanceForm
             key={source.id}
             source={source}

@@ -4,6 +4,7 @@ import type { KmsJourney } from "@/features/kms/schemas/types";
 import {
   pairMileageJourneys,
   tripHasClaimedDays,
+  tripMeetsPerDiemDistance,
   allowanceCents,
   allowanceDays,
   perDiemsForMonth,
@@ -28,6 +29,24 @@ const source: KmsJourney = {
 const input = () => valuesFromJourney(source, "2026-08");
 
 describe("per diem calculations and validation", () => {
+  it("only processes journeys above 20 km using the recorded distance", () => {
+    for (const distance of [0, 15, 19.99, 20, 20.01, 21]) {
+      const journey = { ...source, distance };
+      assert.equal(tripMeetsPerDiemDistance(journey), distance > 20);
+      for (const territory of ["portugal", "abroad"] as const) {
+        const values = { ...input(), territory, distance: 999 };
+        if (distance <= 20) {
+          assert.throws(
+            () => perDiemsFromJourney(values, journey, "alice"),
+            /require more than 20 km/,
+          );
+        } else {
+          assert.equal(perDiemsFromJourney(values, journey, "alice")[0].sourceDistance, distance);
+        }
+      }
+    }
+  });
+
   it("uses the manager rate and rounds each day's allowance before summing", () => {
     const [day] = allowanceDays(input());
     assert.equal(day.dailyRateCents, 7265);
@@ -194,6 +213,34 @@ describe("mileage trip pairing", () => {
     reason: returning ? "Regresso" : source.reason,
     isReturn: returning,
     ...changes,
+  });
+  it("checks each leg instead of combining outward and return distances", () => {
+    for (const date of ["2026-08-06", "2026-08-08"]) {
+      for (const [outwardDistance, returnDistance] of [
+        [15, 15],
+        [20, 190],
+        [190, 20],
+        [21, 21],
+      ]) {
+        const outward = { ...source, distance: outwardDistance };
+        const returning = leg(date, true, { distance: returnDistance });
+        const [trip] = pairMileageJourneys([outward, returning]);
+        const eligible = outwardDistance > 20 && returnDistance > 20;
+        assert.equal(tripMeetsPerDiemDistance(trip), eligible);
+        const values = valuesFromJourney(trip, "2026-08");
+        if (eligible) {
+          assert.equal(
+            perDiemsFromJourney(values, outward, "alice", returning).length,
+            date === "2026-08-06" ? 1 : 3,
+          );
+        } else {
+          assert.throws(
+            () => perDiemsFromJourney(values, outward, "alice", returning),
+            /require more than 20 km/,
+          );
+        }
+      }
+    }
   });
   it("pairs unordered legs and automatically fills every overnight day", () => {
     const returning = leg("2026-08-08", true);

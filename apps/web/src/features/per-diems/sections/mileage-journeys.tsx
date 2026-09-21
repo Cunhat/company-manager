@@ -1,7 +1,12 @@
 import { Button } from "@/components/ui/button";
 import dayjs from "@/features/kms/lib/dates";
 import { formatTravelDate } from "@/features/kms/lib/maps";
-import { tripHasClaimedDays, type PerDiemJourney } from "../lib/allowances";
+import {
+  PER_DIEM_DISTANCE_MESSAGE,
+  tripHasClaimedDays,
+  tripMeetsPerDiemDistance,
+  type PerDiemJourney,
+} from "../lib/allowances";
 
 export function MileageJourneys({
   journeys,
@@ -26,7 +31,8 @@ export function MileageJourneys({
           Mileage trips
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Outward and return journeys are grouped into one trip, including every overnight day.
+          Outward and return journeys are grouped into one trip, including every overnight day.{" "}
+          {PER_DIEM_DISTANCE_MESSAGE}
         </p>
       </div>
       {!ready ? (
@@ -92,7 +98,11 @@ export function MileageJourneys({
                       {journey.distance + (journey.returnJourney?.distance ?? 0)}
                     </td>
                     <td className="px-5 py-4">
-                      {claimed ? (
+                      {!tripMeetsPerDiemDistance(journey) ? (
+                        <span className="text-xs text-muted-foreground">
+                          Not eligible: journey must exceed 20 km
+                        </span>
+                      ) : claimed ? (
                         <span className="whitespace-nowrap text-xs text-muted-foreground">
                           Trip has covered days
                         </span>
