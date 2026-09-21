@@ -11,8 +11,11 @@ export const Route = createFileRoute("/_authed/")({
     await Promise.all([
       context.queryClient.ensureQueryData(getIvaQuery),
       context.queryClient.query(getAccountsQuery),
-      context.queryClient.query(getYearlyInvoicesAndExpensesQuery()),
-      context.queryClient.query(getSalaryQuery(context.session.user.id)),
+      // AnnualProfitSection handles these query errors and offers its own retry action.
+      Promise.allSettled([
+        context.queryClient.query(getYearlyInvoicesAndExpensesQuery()),
+        context.queryClient.query(getSalaryQuery(context.session.user.id)),
+      ]),
     ]);
   },
 });
