@@ -1,4 +1,4 @@
-import { IconBuildingBank, IconChevronDown, IconWallet } from "@tabler/icons-react";
+import { IconBuildingBank, IconCalculator, IconChevronDown, IconWallet } from "@tabler/icons-react";
 import { formatCents } from "@/features/iva/lib/quarters";
 import type { AnnualProfit } from "../lib/annual-profit";
 
@@ -53,10 +53,21 @@ export default function AnnualProfitSummary({ data }: { data: AnnualProfit }) {
         <span className="text-xs text-muted-foreground">As of {data.asOf}</span>
       </header>
 
-      <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <div className="grid divide-y lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         <div className="p-5 sm:p-6">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <IconBuildingBank size={18} stroke={2} aria-hidden="true" /> IRC to pay
+            <IconBuildingBank size={18} stroke={2} aria-hidden="true" /> Profit subject to IRC
+          </div>
+          <p className="mt-4 break-words text-3xl font-semibold tracking-tight tabular-nums lg:text-4xl">
+            {formatCents(Math.max(0, actual.profitCents))}
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Paid invoices minus operating expenses and full payroll costs.
+          </p>
+        </div>
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <IconCalculator size={18} stroke={2} aria-hidden="true" /> IRC to pay
           </div>
           <p className="mt-4 break-words text-3xl font-semibold tracking-tight tabular-nums lg:text-4xl">
             {formatCents(actual.ircCents)}
