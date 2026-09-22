@@ -17,7 +17,7 @@ export function TeamSwitcher({
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton size="lg" tooltip={name} render={<Link to="/" />}>
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg">
             {logo}
           </div>
           <span className="truncate font-medium">{name}</span>

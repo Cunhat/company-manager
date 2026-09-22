@@ -21,16 +21,14 @@ import {
   IconCreditCardFilled,
   IconFileInvoiceFilled,
   IconLayoutDashboardFilled,
-  IconLayoutRows,
   IconReceiptEuroFilled,
-  IconRoute,
 } from "@tabler/icons-react";
 import { NavDocuments } from "./nav-documents";
 
 const data = {
   team: {
     name: "TMC Lda",
-    logo: <IconLayoutRows />,
+    logo: <img src="/icon-192.png" alt="" className="size-8 object-cover" />,
   },
   // navMain: [
   //   {

@@ -7,11 +7,11 @@ function BrandMark({ size = "md" }: { size?: "sm" | "md" }) {
     <div className="flex items-center gap-3">
       <span
         className={cn(
-          "flex items-center justify-center rounded-2xl bg-primary font-semibold text-primary-foreground",
-          size === "sm" ? "size-8 text-xs" : "size-10 text-sm",
+          "overflow-hidden rounded-xl",
+          size === "sm" ? "size-8" : "size-10",
         )}
       >
-        CM
+        <img src="/icon-192.png" alt="" className="size-full object-cover" />
       </span>
       <span className="text-sm font-medium tracking-tight">
         Company Manager

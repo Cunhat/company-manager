@@ -7,7 +7,7 @@ export default function DashboardView() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Company overview</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your balance, next IVA payment and personal profit for the year.
+            Your balance after upcoming payments, next IVA and personal profit for the year.
           </p>
         </div>
       </header>
