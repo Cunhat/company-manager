@@ -8,6 +8,7 @@ const quarter: IvaQuarter = {
   quarter: 2,
   status: "open",
   salesCents: 23000,
+  pendingSalesCents: 0,
   deductionsCents: 3000,
   carryInCents: 5000,
   payableCents: 15000,
@@ -93,6 +94,28 @@ describe("next IVA payment", () => {
     assert.equal(result.deadline.taxYear, 2025);
     assert.equal(result.deadline.quarter, "Q4");
     assert.equal(result.payableCents, 15000);
+  });
+
+  it("leaves IVA on pending invoices out of the payment", () => {
+    // 23000 sales, 4600 of them pending: 18400 - 3000 deductions - 5000 carried in.
+    const result = getNextIvaPayment([{ ...quarter, pendingSalesCents: 4600 }], today);
+    assert.equal(result.payableCents, 10400);
+    assert.equal(
+      getNextIvaPayment([{ ...quarter, pendingSalesCents: 23000 }], today).payableCents,
+      0,
+    );
+  });
+
+  it("carries credit from a quarter whose invoices are all pending", () => {
+    const earlier = { ...quarter, quarter: 1, pendingSalesCents: 23000 };
+    const next = { ...quarter, carryInCents: 0, payableCents: 20000 };
+    // Q1 now carries 3000 deductions + 5000 incoming into Q2: 23000 - 3000 - 8000.
+    assert.equal(getNextIvaPayment([earlier, next], today).payableCents, 12000);
+    // A reopened quarter keeps its confirmed carryover.
+    assert.equal(
+      getNextIvaPayment([{ ...earlier, confirmedCarryOutCents: 0 }, next], today).payableCents,
+      20000,
+    );
   });
 
   it("keeps the payment on its deadline and advances on the following day", () => {

@@ -49,7 +49,36 @@ export function getNextIvaDeadline(now = new Date()) {
   return deadlines.find(({ payment }) => !payment.isBefore(today, "day"))!;
 }
 
-export function getNextIvaPayment(ledger: IvaQuarter[], now = new Date()) {
+// Leaves IVA on pending invoices out of open quarters, carrying any resulting credit
+// forward the same way iva_ledger does. Closed quarters cannot have pending invoices.
+export function excludePendingInvoices(ledger: IvaQuarter[]) {
+  let incoming: number | null = null;
+  return ledger.map((period) => {
+    const carryInCents = incoming ?? period.carryInCents;
+    incoming = null;
+    if (
+      period.status === "closed" ||
+      (period.pendingSalesCents === 0 && carryInCents === period.carryInCents)
+    )
+      return period;
+
+    const salesCents = period.salesCents - period.pendingSalesCents;
+    const carryOutCents = Math.max(0, period.deductionsCents + carryInCents - salesCents);
+    // A reopened quarter keeps feeding its confirmed carryover to later quarters.
+    incoming = period.confirmedCarryOutCents ?? carryOutCents;
+    return {
+      ...period,
+      salesCents,
+      pendingSalesCents: 0,
+      carryInCents,
+      payableCents: Math.max(0, salesCents - period.deductionsCents - carryInCents),
+      carryOutCents,
+    };
+  });
+}
+
+export function getNextIvaPayment(allPeriods: IvaQuarter[], now = new Date()) {
+  const ledger = excludePendingInvoices(allPeriods);
   const today = getToday(now);
   let deadline = getNextIvaDeadline(now);
 

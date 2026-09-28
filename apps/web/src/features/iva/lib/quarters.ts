@@ -21,6 +21,8 @@ export type IvaQuarter = {
   quarter: number;
   status: "open" | "closed";
   salesCents: number;
+  // IVA on pending invoices, already included in salesCents.
+  pendingSalesCents: number;
   deductionsCents: number;
   carryInCents: number;
   payableCents: number;

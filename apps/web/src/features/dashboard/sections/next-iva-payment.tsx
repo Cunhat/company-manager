@@ -39,7 +39,7 @@ export default function NextIvaPayment() {
           {amount === null ? "—" : money.format(Math.max(0, amount))}
         </p>
         <p className="mt-3 text-sm text-stone-700">
-          Includes unused deductions from the previous quarter.{" "}
+          Includes unused deductions from the previous quarter. Excludes pending invoices.{" "}
           <a href="/iva" className="font-medium underline underline-offset-4">
             View IVA
           </a>

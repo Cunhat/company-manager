@@ -50,17 +50,29 @@ export const getIva = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<IvaQuarter[]> => {
     const userId = context.session?.user.id;
     if (!userId) throw new Error("You must be signed in to view IVA");
+    const db = createDb();
     // One snapshot includes every historical year and any future-dated documents.
-    const result = await createDb().execute(sql`
+    const [result, pending] = await Promise.all([
+      db.execute(sql`
     select q.* from iva_ledger(${userId}, greatest(extract(year from current_date)::integer,
       coalesce((select max(extract(year from created_at))::integer from invoice where user_id = ${userId}), 0),
       coalesce((select max(extract(year from created_at))::integer from expense where user_id = ${userId}), 0),
-      coalesce((select max(year) from iva_quarter where user_id = ${userId}), 0))) q`);
+      coalesce((select max(year) from iva_quarter where user_id = ${userId}), 0))) q`),
+      // Same per-document rounding as iva_ledger's sales.
+      db.execute(sql`
+    select extract(year from created_at)::integer as year, extract(quarter from created_at)::integer as quarter,
+      sum(round(value * 100 * 0.23)) as cents
+    from invoice where user_id = ${userId} and status = 'pending' group by 1, 2`),
+    ]);
+    const pendingCents = new Map(
+      pending.rows.map((row) => [`${row.year}-${row.quarter}`, Number(row.cents)]),
+    );
     return result.rows.map((row) => ({
       year: Number(row.year),
       quarter: Number(row.quarter),
       status: row.status as IvaQuarter["status"],
       salesCents: Number(row.sales_cents),
+      pendingSalesCents: pendingCents.get(`${row.year}-${row.quarter}`) ?? 0,
       deductionsCents: Number(row.deductions_cents),
       carryInCents: Number(row.carry_in_cents),
       payableCents: Number(row.payable_cents),

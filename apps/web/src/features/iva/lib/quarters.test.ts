@@ -7,6 +7,7 @@ const period: IvaQuarter = {
   quarter: 1,
   status: "open",
   salesCents: 23000,
+  pendingSalesCents: 0,
   deductionsCents: 2300,
   carryInCents: 0,
   payableCents: 20700,
