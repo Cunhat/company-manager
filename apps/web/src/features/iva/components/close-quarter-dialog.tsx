@@ -33,8 +33,11 @@ export function CloseQuarterDialog({
   const amount = cents(government);
   const difference = amount === null ? null : amount - quarter.payableCents;
   const blocker = closeBlocker(quarter);
-  const needsPayment = quarter.paymentTransactionId === null && quarter.payableCents > 0;
-  const canClose = !blocker && difference === 0 && (!needsPayment || (accountId && paymentDate));
+  // The government amount is what gets paid; fall back to the calculation until one is entered.
+  const paymentCents = amount ?? quarter.payableCents;
+  const needsPayment = quarter.paymentTransactionId === null && paymentCents > 0;
+  const canClose =
+    !blocker && amount !== null && (!needsPayment || (accountId && paymentDate));
   return (
     <Dialog
       open
@@ -51,7 +54,7 @@ export function CloseQuarterDialog({
             Close Q{quarter.quarter} {quarter.year}
           </DialogTitle>
           <DialogDescription>
-            Match the government amount to your records. Closing locks this quarter’s invoices and
+            Enter the amount shown by the government. Closing locks this quarter’s invoices and
             expenses.
           </DialogDescription>
         </DialogHeader>
@@ -115,13 +118,13 @@ export function CloseQuarterDialog({
             <p
               id="iva-difference"
               aria-live="polite"
-              className={`text-sm ${difference !== null && difference !== 0 ? "text-destructive" : "text-muted-foreground"}`}
+              className={`text-sm ${difference !== null && difference !== 0 ? "text-amber-800 dark:text-amber-300" : "text-muted-foreground"}`}
             >
               {difference === null
                 ? "Enter the amount shown by the government."
                 : difference === 0
                   ? "The amounts match exactly."
-                  : `Difference: ${formatCents(difference)}. Check your invoices and expenses before closing.`}
+                  : `Difference: ${formatCents(difference)}. The government amount will be recorded as the payment.`}
             </p>
           </div>
           {needsPayment ? (
@@ -146,13 +149,13 @@ export function CloseQuarterDialog({
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                An expense transaction for {formatCents(quarter.payableCents)} will be recorded in
+                An expense transaction for {formatCents(paymentCents)} will be recorded in
                 this account.
               </p>
             </fieldset>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {quarter.payableCents === 0
+              {paymentCents === 0
                 ? "There is no payment due. No transaction will be created."
                 : "The existing payment transaction will be retained."}
             </p>

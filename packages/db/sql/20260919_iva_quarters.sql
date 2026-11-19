@@ -129,7 +129,8 @@ BEGIN
   IF current_period.status = 'closed' THEN RAISE EXCEPTION 'This quarter is already closed'; END IF;
   IF NOT current_period.previous_closed THEN RAISE EXCEPTION 'Close all earlier quarters first'; END IF;
   IF current_period.unpaid_invoices > 0 THEN RAISE EXCEPTION 'Pay every non-cancelled invoice before closing this quarter'; END IF;
-  IF current_period.payable_cents <> p_government THEN RAISE EXCEPTION 'Government amount does not match the calculated IVA'; END IF;
+  -- The government amount is authoritative for the payment, even when it differs
+  -- from the calculated IVA. The calculated deduction still carries forward.
   IF current_period.government_cents IS NOT NULL AND
     (current_period.government_cents <> p_government OR current_period.confirmed_carry_out_cents <> current_period.carry_out_cents) THEN
     RAISE EXCEPTION 'Corrections must preserve the original payment and deduction carried forward';

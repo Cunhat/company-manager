@@ -40,8 +40,6 @@ export function closeBlocker(period: IvaQuarter) {
   if (!period.previousClosed) return "Close all earlier quarters first.";
   if (period.unpaidInvoices)
     return `${period.unpaidInvoices} unpaid invoice${period.unpaidInvoices === 1 ? "" : "s"} must be paid first.`;
-  if (period.governmentCents !== null && period.payableCents !== period.governmentCents)
-    return "Correct the records to match the original government amount.";
   if (
     period.confirmedCarryOutCents !== null &&
     period.carryOutCents !== period.confirmedCarryOutCents

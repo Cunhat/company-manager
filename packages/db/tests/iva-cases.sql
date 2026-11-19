@@ -15,7 +15,6 @@ BEGIN
   BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, account, '2025-05-25'); RAISE EXCEPTION 'FAIL unpaid'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Pay every%', SQLERRM; END;
   UPDATE invoice SET status = 'paid' WHERE id = item;
   BEGIN PERFORM iva_close_quarter('iva-test', 2025, 3, 0); RAISE EXCEPTION 'FAIL order'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Close all earlier quarters first', SQLERRM; END;
-  BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20701, account, '2025-05-25'); RAISE EXCEPTION 'FAIL mismatch'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM LIKE 'Government amount%', SQLERRM; END;
   BEGIN PERFORM iva_close_quarter('iva-test', 2025, 1, 20700, other_account, '2025-05-25'); RAISE EXCEPTION 'FAIL account'; EXCEPTION WHEN raise_exception THEN ASSERT SQLERRM = 'Choose one of your accounts', SQLERRM; END;
   ASSERT (SELECT count(*) FROM "transaction") = 0, 'Failed close created a payment';
   INSERT INTO iva_quarter (user_id, year, quarter) VALUES ('iva-test', 2025, 1);
@@ -72,5 +71,18 @@ BEGIN
   ASSERT (SELECT account_id IS NULL FROM invoice WHERE id = item), 'Account deletion failed to unassign document';
   PERFORM iva_reopen_quarter('iva-test', 2025, 1);
   ASSERT (SELECT status = 'open' AND payment_transaction_id IS NULL FROM iva_quarter WHERE user_id = 'iva-test' AND year = 2025 AND quarter = 1), 'Could not reopen after payment was already deleted';
+  -- The government amount may differ from the calculation; it becomes the payment.
+  INSERT INTO "user" VALUES ('iva-gov');
+  INSERT INTO financial_account(user_id) VALUES ('iva-gov') RETURNING id INTO account;
+  INSERT INTO invoice(user_id, value, status, created_at) VALUES ('iva-gov', 1000, 'paid', '2025-01-01'), ('iva-gov', 100, 'paid', '2025-04-01');
+  PERFORM iva_close_quarter('iva-gov', 2025, 1, 23050, account, '2025-05-20');
+  SELECT * INTO q FROM iva_ledger('iva-gov', 2025) WHERE quarter = 1;
+  ASSERT q.payable_cents = 23050 AND q.government_cents = 23050 AND q.carry_out_cents = 0, 'Mismatched government amount not stored';
+  ASSERT (SELECT value = 230.50 FROM "transaction" WHERE id = q.payment_transaction_id), 'Payment did not use the government amount';
+  PERFORM iva_close_quarter('iva-gov', 2025, 2, 0);
+  ASSERT (SELECT count(*) FROM "transaction" WHERE user_id = 'iva-gov') = 1, 'Zero government amount created a payment';
+  PERFORM iva_reopen_quarter('iva-gov', 2025, 1);
+  PERFORM iva_close_quarter('iva-gov', 2025, 1, 23050, account, '2025-06-01');
+  ASSERT (SELECT status = 'closed' AND government_cents = 23050 FROM iva_quarter WHERE user_id = 'iva-gov' AND year = 2025 AND quarter = 1), 'Could not reclose a mismatched quarter';
 END;
 $$;

@@ -205,7 +205,7 @@ function setup(overrides: Partial<IvaQuarter> = {}) {
 }
 
 describe("IVA interface", () => {
-  it("blocks mismatches and requires the account before creating a payment", async () => {
+  it("allows mismatches and requires the account before creating a payment", async () => {
     const test = setup();
     const ui = render(<test.Close quarter={test.period} onClose={() => {}} />, {
       wrapper: test.wrapper,
@@ -216,13 +216,13 @@ describe("IVA interface", () => {
     assert.ok(submit.disabled);
     fireEvent.change(ui.getByLabelText("Government IVA amount (€)"), { target: { value: "208" } });
     assert.ok(ui.getByText(/Difference: €1.00/));
-    assert.ok(submit.disabled);
-    fireEvent.change(ui.getByLabelText("Government IVA amount (€)"), { target: { value: "207" } });
+    assert.ok(ui.getByText(/transaction for €208.00/));
     assert.ok(submit.disabled);
     fireEvent.change(ui.getByLabelText("Account"), { target: { value: "account" } });
+    assert.ok(!submit.disabled);
     fireEvent.click(submit);
     await waitFor(() => assert.equal(test.calls.length, 1));
-    assert.equal((test.calls[0] as { governmentAmount: string }).governmentAmount, "207");
+    assert.equal((test.calls[0] as { governmentAmount: string }).governmentAmount, "208");
   });
   it("closes a zero-payment quarter without account or transaction details", async () => {
     const test = setup({ payableCents: 0, carryOutCents: 1000 });

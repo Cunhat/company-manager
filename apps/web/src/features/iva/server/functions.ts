@@ -32,7 +32,6 @@ async function changeQuarter(statement: ReturnType<typeof sql>) {
       "This quarter is already closed",
       "Close all earlier quarters first",
       "Pay every non-cancelled invoice before closing this quarter",
-      "Government amount does not match the calculated IVA",
       "Corrections must preserve the original payment and deduction carried forward",
       "Choose the payment date",
       "Choose one of your accounts",

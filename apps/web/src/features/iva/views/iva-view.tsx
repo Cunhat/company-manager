@@ -310,8 +310,8 @@ function ReopenDialog({ quarter, onClose }: { quarter: IvaQuarter; onClose: () =
           <DialogDescription>
             Invoices and expenses will become editable. The linked IVA payment transaction will be
             deleted and the account balance will update. Closing again will ask for a payment
-            account and date when IVA is due. The original government amount and deduction carried
-            forward must still match. Later quarters will stay closed.
+            account and date when IVA is due. The original government amount is kept, and the
+            deduction carried forward must still match. Later quarters will stay closed.
           </DialogDescription>
         </DialogHeader>
         {mutation.error ? (

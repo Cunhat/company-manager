@@ -38,8 +38,8 @@ describe("IVA form validation", () => {
     assert.match(closeBlocker({ ...period, unpaidInvoices: 2 })!, /2 unpaid/);
     assert.match(closeBlocker({ ...period, status: "closed" })!, /already closed/);
   });
-  it("requires both original values when closing a reopened quarter", () => {
-    assert.match(closeBlocker({ ...period, governmentCents: 20000 })!, /government/);
+  it("requires the original carryover, not the original payment, when reclosing", () => {
+    assert.equal(closeBlocker({ ...period, governmentCents: 20000, confirmedCarryOutCents: 0 }), null);
     assert.match(
       closeBlocker({ ...period, governmentCents: 20700, confirmedCarryOutCents: 100 })!,
       /carried forward/,
